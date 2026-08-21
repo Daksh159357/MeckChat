@@ -94,7 +94,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     child: Column(
                       crossAxisAlignment:
-                          isMe ? CrossAlignment.end : CrossAlignment.start,
+                          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
                         Text(
                           msg.content,

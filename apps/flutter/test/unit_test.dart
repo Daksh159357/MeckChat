@@ -58,7 +58,8 @@ void main() {
         transferredBytes: 524288, // 512 KB
         sha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
         status: FileTransferStatus.transferring,
-        isIncoming: false,
+        isOutgoing: false,
+        peerDeviceId: 'peer_dev_123',
       );
 
       expect(transfer.progress, equals(0.5));

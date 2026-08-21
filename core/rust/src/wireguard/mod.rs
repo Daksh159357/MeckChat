@@ -53,7 +53,8 @@ impl WireGuardInterfaceConfig {
     }
 
     pub fn add_peer(&mut self, peer: WireGuardPeerConfig) {
-        self.peers.retain(|p| p.peer_public_key != peer.peer_public_key);
+        self.peers
+            .retain(|p| p.peer_public_key != peer.peer_public_key);
         self.peers.push(peer);
     }
 }
