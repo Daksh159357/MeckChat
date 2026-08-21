@@ -172,18 +172,26 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: Display Downloaded Files
+      - name: Generate SHA256 Checksums
         run: |
-          ls -R release-artifacts
+          mkdir -p release-files
+          cp release-artifacts/meckchat-linux-x64/meckchat-linux-x64.tar.gz release-files/MeckChat-Linux.tar.gz
+          cp release-artifacts/meckchat-windows-x64/meckchat-windows-x64.zip release-files/MeckChat-Windows.zip
+          cp release-artifacts/meckchat-android-apk/meckchat-android-release.apk release-files/MeckChat-Android.apk
+          cp release-artifacts/meckchat-macos-zip/meckchat-macos-x64.zip release-files/MeckChat-macOS.zip
+          cd release-files
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-artifacts/meckchat-linux-x64/meckchat-linux-x64.tar.gz
-            release-artifacts/meckchat-windows-x64/meckchat-windows-x64.zip
-            release-artifacts/meckchat-android-apk/meckchat-android-release.apk
-            release-artifacts/meckchat-macos-zip/meckchat-macos-x64.zip
+            release-files/MeckChat-Linux.tar.gz
+            release-files/MeckChat-Windows.zip
+            release-files/MeckChat-Android.apk
+            release-files/MeckChat-macOS.zip
+            release-files/SHA256SUMS.txt
           draft: false
           prerelease: false
           name: MeckChat Release ${{ github.ref_name }}

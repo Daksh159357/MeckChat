@@ -20,6 +20,7 @@ rand = "0.8.5"
 base64 = "0.22.1"
 rusqlite = { version = "0.31.0", features = ["bundled"] }
 flutter_rust_bridge = "2.0.0"
+hex = "0.4.3"
 thiserror = "1.0"
 tracing = "0.1"
 
