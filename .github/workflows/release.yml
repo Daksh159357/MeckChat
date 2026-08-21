@@ -142,6 +142,8 @@ jobs:
           cp apps/flutter/build/app/outputs/flutter-apk/app-release.apk MeckChat-Android.apk
           test -s MeckChat-Android.apk
           ls -lh MeckChat-Android.apk
+          echo "Verifying MainActivity class presence in APK DEX..."
+          unzip -p MeckChat-Android.apk classes.dex | grep -a "com/meckchat/meckchat/MainActivity"
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
