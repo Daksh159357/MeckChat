@@ -1,32 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'providers/presence_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/file_transfer_provider.dart';
+import 'providers/presence_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 import 'services/meckchat_core_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize MeckChat Rust core identity
-  await MeckChatCoreService().initializeLocalIdentity(
-    name: 'Daksh-Local',
-    platform: 'Linux',
-  );
+  // Load saved device identity from local persistent storage
+  final service = MeckChatCoreService();
+  final bool isAlreadyOnboarded = await service.loadSavedIdentity();
 
-  runApp(const MeckChatApp());
+  runApp(MeckChatApp(isAlreadyOnboarded: isAlreadyOnboarded));
 }
 
 class MeckChatApp extends StatelessWidget {
-  const MeckChatApp({super.key});
+  final bool isAlreadyOnboarded;
+
+  const MeckChatApp({
+    super.key,
+    required this.isAlreadyOnboarded,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final service = MeckChatCoreService();
+
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => PresenceProvider()..initMockPresence()),
+        ChangeNotifierProvider(create: (_) {
+          final presence = PresenceProvider();
+          if (service.localIdentity != null) {
+            presence.setLocalIdentity(service.localIdentity!);
+          }
+          return presence;
+        }),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => FileTransferProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
@@ -48,7 +60,7 @@ class MeckChatApp extends StatelessWidget {
             centerTitle: false,
           ),
         ),
-        home: const HomeScreen(),
+        home: isAlreadyOnboarded ? const HomeScreen() : const OnboardingScreen(),
       ),
     );
   }

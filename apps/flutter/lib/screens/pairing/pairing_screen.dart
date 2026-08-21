@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../models/device.dart';
+import '../../providers/presence_provider.dart';
 
 class PairingScreen extends StatefulWidget {
   const PairingScreen({super.key});
@@ -8,19 +12,10 @@ class PairingScreen extends StatefulWidget {
   State<PairingScreen> createState() => _PairingScreenState();
 }
 
-class _PairingScreenState extends State<PairingScreen> with SingleTickerProviderStateMixin {
+class _PairingScreenState extends State<PairingScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _secretController = TextEditingController();
-
-  final String _qrPayload = '''{
-  "protocol_version": "1.0",
-  "device_id": "7f3a91b2c4e5001",
-  "display_name": "Daksh-PC",
-  "platform": "Windows",
-  "wireguard_public_key": "pub_key_pc_windows_x25519",
-  "virtual_ip": "10.77.0.2",
-  "pairing_metadata": "meckchat_p2p_v1"
-}''';
 
   @override
   void initState() {
@@ -28,8 +23,17 @@ class _PairingScreenState extends State<PairingScreen> with SingleTickerProvider
     _tabController = TabController(length: 2, vsync: this);
   }
 
+  String _buildQrPayload(LocalDevice? localDevice) {
+    if (localDevice == null) return '{}';
+    return jsonEncode(localDevice.toSignalingJson());
+  }
+
   @override
   Widget build(BuildContext context) {
+    final presence = Provider.of<PresenceProvider>(context);
+    final localDevice = presence.localDevice;
+    final qrData = _buildQrPayload(localDevice);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pair Device'),
@@ -55,7 +59,7 @@ class _PairingScreenState extends State<PairingScreen> with SingleTickerProvider
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: QrImageView(
-                    data: _qrPayload,
+                    data: qrData,
                     version: QrVersions.auto,
                     size: 240.0,
                   ),
@@ -104,7 +108,8 @@ class _PairingScreenState extends State<PairingScreen> with SingleTickerProvider
                     if (_secretController.text.trim().isNotEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Argon2id authentication token derived & verified!'),
+                          content: Text(
+                              'Argon2id authentication token derived & verified!'),
                           backgroundColor: Colors.green,
                         ),
                       );

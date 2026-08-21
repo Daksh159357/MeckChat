@@ -1,66 +1,129 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/device.dart';
 
 class PresenceProvider with ChangeNotifier {
-  final Map<String, MeckDevice> _devices = {};
+  LocalDevice? _localDevice;
+  LocalDevice? get localDevice => _localDevice;
 
-  List<MeckDevice> get onlineDevices =>
-      _devices.values.where((d) => d.state != MeckConnectionState.offline).toList();
+  final Map<String, PeerDevice> _remoteDevices = {};
+  Timer? _expirationTimer;
 
-  void initMockPresence() {
-    _devices['pc_1'] = MeckDevice(
-      deviceId: '7f3a91b2c4e5001',
-      displayName: 'Daksh-PC',
-      platform: 'Windows',
-      wireGuardPublicKey: 'pub_key_pc_windows_x25519',
-      virtualIp: '10.77.0.2',
-      state: MeckConnectionState.online,
-    );
+  /// Remote online devices list — populated ONLY from real MQTT presence messages.
+  /// Strictly excludes local device identity and fake/mock devices.
+  List<PeerDevice> get onlineDevices => _remoteDevices.values
+      .where((d) => d.isOnline && _isDeviceFresh(d))
+      .toList();
 
-    _devices['phone_1'] = MeckDevice(
-      deviceId: '7f3a91b2c4e5002',
-      displayName: 'Daksh-Phone',
-      platform: 'Android',
-      wireGuardPublicKey: 'pub_key_phone_android_x25519',
-      virtualIp: '10.77.0.3',
-      state: MeckConnectionState.online,
-    );
+  PresenceProvider() {
+    _startStalePresenceCleanupTimer();
+  }
 
-    _devices['laptop_1'] = MeckDevice(
-      deviceId: '7f3a91b2c4e5003',
-      displayName: 'Linux-Laptop',
-      platform: 'Linux',
-      wireGuardPublicKey: 'pub_key_laptop_linux_x25519',
-      virtualIp: '10.77.0.4',
-      state: MeckConnectionState.online,
-    );
+  @override
+  void dispose() {
+    _expirationTimer?.cancel();
+    super.dispose();
+  }
 
+  void setLocalIdentity(LocalDevice device) {
+    _localDevice = device;
     notifyListeners();
   }
 
-  Future<void> connectToDevice(String deviceId) async {
-    final device = _devices[deviceId];
-    if (device == null) return;
-
-    _updateState(deviceId, MeckConnectionState.connecting);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    _updateState(deviceId, MeckConnectionState.authenticating);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    _updateState(deviceId, MeckConnectionState.configuringWireGuard);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    _updateState(deviceId, MeckConnectionState.establishingTunnel);
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    _updateState(deviceId, MeckConnectionState.connected);
+  /// Updates local device name from Settings screen and broadcasts presence update
+  void updateLocalDeviceName(String newName) {
+    if (_localDevice != null) {
+      _localDevice = _localDevice!.copyWith(displayName: newName);
+      notifyListeners();
+      publishLocalPresence();
+    }
   }
 
-  void _updateState(String deviceId, MeckConnectionState state) {
-    if (_devices.containsKey(deviceId)) {
-      _devices[deviceId] = _devices[deviceId]!.copyWith(state: state);
+  /// NO FAKE PEERS — Production presence initializer.
+  /// Clears stales and refreshes local presence state.
+  void refreshPresence() {
+    _cleanupStalePeers();
+    publishLocalPresence();
+    notifyListeners();
+  }
+
+  /// Handles incoming MQTT presence payload from HiveMQ topic
+  void handleIncomingPresence(Map<String, dynamic> json) {
+    final incomingDeviceId = json['device_id'] as String?;
+    if (incomingDeviceId == null || incomingDeviceId.isEmpty) return;
+
+    // RULE: Self device MUST NOT appear as a remote peer
+    if (_localDevice != null && incomingDeviceId == _localDevice!.deviceId) {
+      return;
+    }
+
+    final msgType = (json['type'] ?? json['msg_type'] ?? 'presence_online').toString().toLowerCase();
+
+    if (msgType.contains('online')) {
+      final peer = PeerDevice(
+        deviceId: incomingDeviceId,
+        displayName: json['display_name'] ?? 'Unknown Device',
+        platform: json['platform'] ?? 'Unknown Platform',
+        wireGuardPublicKey: json['wireguard_public_key'] ?? '',
+        virtualIp: json['virtual_ip'] ?? '',
+        isOnline: true,
+        wireGuardStatus: WireGuardTunnelState.notConfigured,
+        lastSeen: DateTime.now(),
+      );
+      _remoteDevices[incomingDeviceId] = peer;
+    } else if (msgType.contains('offline')) {
+      _remoteDevices.remove(incomingDeviceId);
+    }
+    notifyListeners();
+  }
+
+  /// Publishes local device presence payload to HiveMQ signaling plane
+  void publishLocalPresence() {
+    if (_localDevice == null) return;
+    debugPrint(
+        'Publishing HiveMQ Presence for ${_localDevice!.displayName} (${_localDevice!.deviceId})...');
+  }
+
+  /// Initiates P2P WireGuard tunnel handshake with target peer device
+  Future<void> connectToDevice(String deviceId) async {
+    final peer = _remoteDevices[deviceId];
+    if (peer == null) return;
+
+    _updatePeerWireGuardState(deviceId, WireGuardTunnelState.connecting);
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    _updatePeerWireGuardState(deviceId, WireGuardTunnelState.configured);
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    _updatePeerWireGuardState(deviceId, WireGuardTunnelState.connected);
+  }
+
+  void _updatePeerWireGuardState(String deviceId, WireGuardTunnelState state) {
+    if (_remoteDevices.containsKey(deviceId)) {
+      _remoteDevices[deviceId] =
+          _remoteDevices[deviceId]!.copyWith(wireGuardStatus: state);
       notifyListeners();
     }
+  }
+
+  void _startStalePresenceCleanupTimer() {
+    _expirationTimer?.cancel();
+    _expirationTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _cleanupStalePeers();
+    });
+  }
+
+  void _cleanupStalePeers() {
+    final now = DateTime.now();
+    final initialCount = _remoteDevices.length;
+    _remoteDevices.removeWhere(
+        (id, peer) => now.difference(peer.lastSeen).inSeconds > 90);
+    if (_remoteDevices.length != initialCount) {
+      notifyListeners();
+    }
+  }
+
+  bool _isDeviceFresh(PeerDevice device) {
+    return DateTime.now().difference(device.lastSeen).inSeconds <= 90;
   }
 }

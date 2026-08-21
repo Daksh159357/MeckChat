@@ -1,3 +1,33 @@
+import 'dart:convert';
+
+enum WireGuardTunnelState {
+  notConfigured,
+  configured,
+  connecting,
+  connected,
+  disconnected,
+  failed,
+}
+
+extension WireGuardTunnelStateX on WireGuardTunnelState {
+  String get label {
+    switch (this) {
+      case WireGuardTunnelState.notConfigured:
+        return 'Not Configured';
+      case WireGuardTunnelState.configured:
+        return 'Configured';
+      case WireGuardTunnelState.connecting:
+        return 'Connecting...';
+      case WireGuardTunnelState.connected:
+        return 'Connected (WireGuard P2P)';
+      case WireGuardTunnelState.disconnected:
+        return 'Disconnected';
+      case WireGuardTunnelState.failed:
+        return 'Connection Failed';
+    }
+  }
+}
+
 enum MeckConnectionState {
   offline,
   online,
@@ -35,36 +65,98 @@ extension MeckConnectionStateX on MeckConnectionState {
   }
 }
 
-class MeckDevice {
+/// Represents the Local Device identity running on this physical machine
+class LocalDevice {
+  final String deviceId;
+  final String displayName;
+  final String platform;
+  final String wireGuardPublicKey;
+  final String wireGuardPrivateKey; // Local only, NEVER sent over network or QR
+  final String virtualIp;
+  final bool isMqttConnected;
+  final WireGuardTunnelState wireGuardStatus;
+
+  LocalDevice({
+    required this.deviceId,
+    required this.displayName,
+    required this.platform,
+    required this.wireGuardPublicKey,
+    required this.wireGuardPrivateKey,
+    required this.virtualIp,
+    this.isMqttConnected = false,
+    this.wireGuardStatus = WireGuardTunnelState.disconnected,
+  });
+
+  LocalDevice copyWith({
+    String? displayName,
+    bool? isMqttConnected,
+    WireGuardTunnelState? wireGuardStatus,
+  }) {
+    return LocalDevice(
+      deviceId: deviceId,
+      displayName: displayName ?? this.displayName,
+      platform: platform,
+      wireGuardPublicKey: wireGuardPublicKey,
+      wireGuardPrivateKey: wireGuardPrivateKey,
+      virtualIp: virtualIp,
+      isMqttConnected: isMqttConnected ?? this.isMqttConnected,
+      wireGuardStatus: wireGuardStatus ?? this.wireGuardStatus,
+    );
+  }
+
+  /// Safe JSON serialization for signaling — NEVER includes private key
+  Map<String, dynamic> toSignalingJson() => {
+        'type': 'presence_online',
+        'device_id': deviceId,
+        'display_name': displayName,
+        'platform': platform,
+        'protocol_version': 1,
+        'wireguard_public_key': wireGuardPublicKey,
+        'virtual_ip': virtualIp,
+      };
+
+  /// Asserts that no private key or raw secret exists in JSON output
+  bool assertPrivateKeySafety() {
+    final jsonStr = jsonEncode(toSignalingJson());
+    return !jsonStr.contains('private_key') && !jsonStr.contains(wireGuardPrivateKey);
+  }
+}
+
+/// Represents a Remote Peer discovered via real MQTT presence messages
+class PeerDevice {
   final String deviceId;
   final String displayName;
   final String platform;
   final String wireGuardPublicKey;
   final String virtualIp;
   final bool isPaired;
-  final MeckConnectionState state;
+  final bool isOnline;
+  final WireGuardTunnelState wireGuardStatus;
   final DateTime lastSeen;
 
-  MeckDevice({
+  PeerDevice({
     required this.deviceId,
     required this.displayName,
     required this.platform,
     required this.wireGuardPublicKey,
     required this.virtualIp,
     this.isPaired = false,
-    this.state = MeckConnectionState.online,
+    this.isOnline = true,
+    this.wireGuardStatus = WireGuardTunnelState.notConfigured,
     DateTime? lastSeen,
   }) : lastSeen = lastSeen ?? DateTime.now();
 
-  factory MeckDevice.fromJson(Map<String, dynamic> json) {
-    return MeckDevice(
+  factory PeerDevice.fromJson(Map<String, dynamic> json) {
+    return PeerDevice(
       deviceId: json['device_id'] ?? '',
       displayName: json['display_name'] ?? 'Unknown Device',
       platform: json['platform'] ?? 'Unknown Platform',
       wireGuardPublicKey: json['wireguard_public_key'] ?? '',
       virtualIp: json['virtual_ip'] ?? '',
       isPaired: json['is_paired'] ?? false,
-      state: MeckConnectionState.online,
+      isOnline: true,
+      wireGuardStatus: WireGuardTunnelState.notConfigured,
+      lastSeen: DateTime.now(),
     );
   }
 
@@ -77,20 +169,26 @@ class MeckDevice {
         'is_paired': isPaired,
       };
 
-  MeckDevice copyWith({
+  PeerDevice copyWith({
+    String? displayName,
     bool? isPaired,
-    MeckConnectionState? state,
+    bool? isOnline,
+    WireGuardTunnelState? wireGuardStatus,
     DateTime? lastSeen,
   }) {
-    return MeckDevice(
+    return PeerDevice(
       deviceId: deviceId,
-      displayName: displayName,
+      displayName: displayName ?? this.displayName,
       platform: platform,
       wireGuardPublicKey: wireGuardPublicKey,
       virtualIp: virtualIp,
       isPaired: isPaired ?? this.isPaired,
-      state: state ?? this.state,
+      isOnline: isOnline ?? this.isOnline,
+      wireGuardStatus: wireGuardStatus ?? this.wireGuardStatus,
       lastSeen: lastSeen ?? this.lastSeen,
     );
   }
 }
+
+/// Backward compatibility alias mapping to PeerDevice for UI components
+typedef MeckDevice = PeerDevice;
