@@ -37,8 +37,9 @@ jobs:
       - name: Setup Flutter Linux Project & Build
         run: |
           cd apps/flutter
-          rm -rf linux
-          flutter create --org com.meckchat --platforms=linux .
+          if [ ! -d "linux" ]; then
+            flutter create --org com.meckchat --platforms=linux .
+          fi
           flutter pub get
           flutter build linux --release
 
@@ -76,10 +77,12 @@ jobs:
           cargo build --release
 
       - name: Setup Flutter Windows Project & Build
+        shell: powershell
         run: |
           cd apps/flutter
-          Remove-Item -Recurse -Force windows -ErrorAction SilentlyContinue
-          flutter create --org com.meckchat --platforms=windows .
+          if (-Not (Test-Path "windows")) {
+            flutter create --org com.meckchat --platforms=windows .
+          }
           flutter pub get
           flutter build windows --release
 
@@ -127,8 +130,9 @@ jobs:
       - name: Setup Flutter Android Project & Build
         run: |
           cd apps/flutter
-          rm -rf android
-          flutter create --org com.meckchat --platforms=android .
+          if [ ! -d "android" ]; then
+            flutter create --org com.meckchat --platforms=android .
+          fi
           flutter pub get
           flutter build apk --release
 
@@ -163,8 +167,9 @@ jobs:
       - name: Setup Flutter macOS Project & Build
         run: |
           cd apps/flutter
-          rm -rf macos
-          flutter create --org com.meckchat --platforms=macos .
+          if [ ! -d "macos" ]; then
+            flutter create --org com.meckchat --platforms=macos .
+          fi
           flutter pub get
           flutter build macos --release
 
