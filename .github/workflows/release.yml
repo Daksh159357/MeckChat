@@ -177,20 +177,20 @@ jobs:
         run: |
           if [ -d "apps/flutter/build/macos/Build/Products/Release/meckchat.app" ]; then
             cd apps/flutter/build/macos/Build/Products/Release
-            zip -r ../../../../../../MeckChat-macOS.zip meckchat.app
-            cd ../../../../../../
+            zip -r "$GITHUB_WORKSPACE/MeckChat-macOS.zip" meckchat.app
+            cd "$GITHUB_WORKSPACE"
           elif [ -d "apps/flutter/build/macos/Build/Products/Release/MeckChat.app" ]; then
             cd apps/flutter/build/macos/Build/Products/Release
-            zip -r ../../../../../../MeckChat-macOS.zip MeckChat.app
-            cd ../../../../../../
+            zip -r "$GITHUB_WORKSPACE/MeckChat-macOS.zip" MeckChat.app
+            cd "$GITHUB_WORKSPACE"
           else
             echo "Packaging Flutter macOS source distribution bundle"
             cd apps/flutter
-            zip -r ../../MeckChat-macOS.zip lib pubspec.yaml
-            cd ../..
+            zip -r "$GITHUB_WORKSPACE/MeckChat-macOS.zip" lib pubspec.yaml
+            cd "$GITHUB_WORKSPACE"
           fi
-          test -s MeckChat-macOS.zip
-          ls -lh MeckChat-macOS.zip
+          test -s "$GITHUB_WORKSPACE/MeckChat-macOS.zip"
+          ls -lh "$GITHUB_WORKSPACE/MeckChat-macOS.zip"
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
