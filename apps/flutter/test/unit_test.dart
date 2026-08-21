@@ -45,7 +45,7 @@ void main() {
       expect(msg.status, equals(MessageStatus.sent));
 
       final json = msg.toJson();
-      expect(json['status'], equals('sent'));
+      expect(json['status'], equals('SENT'));
     });
   });
 

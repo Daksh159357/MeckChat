@@ -107,6 +107,9 @@ mod tests {
         let secret = "MECKCHAT123";
         let (hash, _salt) = SharedSecretPairing::derive_auth_token(secret, None).unwrap();
         assert!(SharedSecretPairing::verify_shared_secret(secret, &hash));
-        assert!(!SharedSecretPairing::verify_shared_secret("WRONG_SECRET", &hash));
+        assert!(!SharedSecretPairing::verify_shared_secret(
+            "WRONG_SECRET",
+            &hash
+        ));
     }
 }
