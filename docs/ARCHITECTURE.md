@@ -1,4 +1,4 @@
-# MeckChat System Architecture
+# MeckChat System Architecture & Status
 
 ```text
                          INTERNET
@@ -12,23 +12,23 @@
                             │
                   MQTT only for signaling
                             │
-             ┌──────────────┴──────────────┐
-             │                             │
-       ┌─────▼─────┐                 ┌─────▼─────┐
-       │  Device A │                 │  Device B │
-       │  MeckChat │                 │  MeckChat │
-       └─────┬─────┘                 └─────┬─────┘
-             │                             │
-             │       WireGuard tunnel      │
-             │◄═══════════════════════════►│
-             │                             │
-             └───────────┬─────────────────┘
-                         │
-                   PRIVATE NETWORK (10.77.0.0/16)
-                         │
-              ┌──────────┼──────────┐
-              │          │          │
-            Chat       Files      Media
+              ┌──────────────┴──────────────┐
+              │                             │
+        ┌─────▼─────┐                 ┌─────▼─────┐
+        │  Device A │                 │  Device B │
+        │  MeckChat │                 │  MeckChat │
+        └─────┬─────┘                 └─────┬─────┘
+              │                             │
+              │       WireGuard tunnel      │
+              │◄═══════════════════════════►│
+              │                             │
+              └───────────┬─────────────────┘
+                          │
+                    PRIVATE NETWORK (10.77.0.0/16)
+                          │
+               ┌──────────┼──────────┐
+               │          │          │
+             Chat       Files      Media
 ```
 
 ## Architectural Boundaries
@@ -41,7 +41,7 @@
   - `PAIR_REQUEST` / `PAIR_ACCEPT` / `PAIR_REJECT` (Argon2id KDF authentication)
   - `WIREGUARD_OFFER` / `WIREGUARD_ANSWER` (Public key & NAT endpoint exchange)
   - `CONNECTION_STATE` (Tunnel status updates)
-- **Zero user data** (messages, files, media) passes through HiveMQ.
+- **Zero user data** (messages, files, media) passes through HiveMQ. Verified by Rust core security assertions.
 
 ### 2. Data Plane (WireGuard Encrypted Private Network - `10.77.0.0/16`)
 - Peer-to-Peer tunnel established directly between devices once endpoints are exchanged.
@@ -50,11 +50,11 @@
 
 ---
 
-## 💻 Platform WireGuard Integration Architecture
+## 💻 Operating System WireGuard Driver Matrix (Phase 3 Audit)
 
-| Operating System | VPN Integration Strategy | Status |
+| Operating System | VPN / Tunnel Integration Strategy | Implementation Status |
 | :--- | :--- | :--- |
-| **Linux** | Native `netlink` / `ip link` / `wg` driver configuration helper | **IMPLEMENTED** |
-| **Windows** | Wintun driver & `wireguard.exe` tunnel service abstraction | **PARTIALLY IMPLEMENTED** |
-| **Android** | Android `VpnService` / WireGuard Android SDK helper | **PARTIALLY IMPLEMENTED** |
-| **macOS / iOS** | Apple Network Extension (`NETunnelProviderManager`) & entitlement signing specification | **REQUIRES APPLE SIGNING** |
+| **Linux** | Native `netlink` / `ip link` / `wg` driver configuration helper | **PARTIALLY IMPLEMENTED** / **NOT VERIFIED** |
+| **Windows** | Wintun driver & `wireguard.exe` tunnel service abstraction | **PARTIALLY IMPLEMENTED** / **NOT VERIFIED** |
+| **Android** | Android `VpnService` / WireGuard Android SDK helper | **PARTIALLY IMPLEMENTED** / **NOT VERIFIED** |
+| **macOS / iOS** | Apple Network Extension (`NETunnelProviderManager`) & entitlement signing specification | **NOT VERIFIED** (Requires Apple Signing) |
