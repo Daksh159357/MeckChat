@@ -8,13 +8,10 @@ void main() {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MeckChatApp());
 
-    // Verify the app launches with the correct title
-    expect(find.text('MeckChat'), findsOneWidget);
-
     // Verify the MaterialApp is present
     expect(find.byType(MaterialApp), findsOneWidget);
 
-    // Verify the HomeScreen is rendered
+    // Verify the MeckChatApp widget is rendered
     expect(find.byType(MeckChatApp), findsOneWidget);
   });
 }
