@@ -134,7 +134,7 @@ jobs:
             flutter create --org com.meckchat --platforms=android .
           fi
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Verify & Rename Android APK
         run: |
