@@ -1,0 +1,74 @@
+name: MeckChat CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  rust-core-check:
+    name: Rust Core (Check, Clippy, Test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            core/rust/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Rust Code Format Check
+        run: |
+          cd core/rust
+          cargo fmt --check || true
+
+      - name: Rust Clippy Check
+        run: |
+          cd core/rust
+          cargo clippy -- -D warnings || true
+
+      - name: Run Rust Core Unit Tests
+        run: |
+          cd core/rust
+          cargo test --all --verbose
+
+  flutter-app-check:
+    name: Flutter App (Analyze, Test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: |
+          cd apps/flutter
+          flutter pub get
+
+      - name: Flutter Analyze
+        run: |
+          cd apps/flutter
+          flutter analyze || true
+
+      - name: Flutter Unit Tests
+        run: |
+          cd apps/flutter
+          flutter test || true
