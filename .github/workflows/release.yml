@@ -37,6 +37,7 @@ jobs:
       - name: Setup Flutter Linux Project & Build
         run: |
           cd apps/flutter
+          rm -rf linux
           flutter create --org com.meckchat --platforms=linux .
           flutter pub get
           flutter build linux --release
@@ -77,6 +78,7 @@ jobs:
       - name: Setup Flutter Windows Project & Build
         run: |
           cd apps/flutter
+          Remove-Item -Recurse -Force windows -ErrorAction SilentlyContinue
           flutter create --org com.meckchat --platforms=windows .
           flutter pub get
           flutter build windows --release
@@ -125,6 +127,7 @@ jobs:
       - name: Setup Flutter Android Project & Build
         run: |
           cd apps/flutter
+          rm -rf android
           flutter create --org com.meckchat --platforms=android .
           flutter pub get
           flutter build apk --release
@@ -160,6 +163,7 @@ jobs:
       - name: Setup Flutter macOS Project & Build
         run: |
           cd apps/flutter
+          rm -rf macos
           flutter create --org com.meckchat --platforms=macos .
           flutter pub get
           flutter build macos --release
