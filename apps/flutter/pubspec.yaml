@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_webrtc: ^0.9.48
+  flutter_webrtc: ^0.12.4
   sqflite: ^2.3.0
   qr_flutter: ^4.1.0
   mobile_scanner: ^5.1.1
