@@ -18,8 +18,8 @@ void main() {
       final json = device.toJson();
       expect(json.containsKey('privateKey'), isFalse);
       expect(json.containsKey('secret'), isFalse);
-      expect(json['deviceId'], equals('dev_test123'));
-      expect(json['virtualIp'], equals('10.77.0.2'));
+      expect(json['device_id'], equals('dev_test123'));
+      expect(json['virtual_ip'], equals('10.77.0.2'));
     });
 
     test('MeckChatCoreService asserts secret safety', () async {

@@ -51,7 +51,8 @@ impl ResumableFileTransfer {
     }
 
     pub fn total_chunks(&self) -> u64 {
-        (self.metadata.total_bytes + self.metadata.chunk_size as u64 - 1) / self.metadata.chunk_size as u64
+        (self.metadata.total_bytes + self.metadata.chunk_size as u64 - 1)
+            / self.metadata.chunk_size as u64
     }
 
     pub fn get_next_chunk_offset(&self) -> u64 {

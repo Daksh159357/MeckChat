@@ -34,7 +34,10 @@ impl DeviceIdentity {
         let public = PublicKey::from(&secret);
 
         let public_key_bytes = public.as_bytes();
-        let public_key_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, public_key_bytes);
+        let public_key_b64 = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            public_key_bytes,
+        );
 
         // Derive deterministic Device ID from SHA-256 of Public Key
         let mut hasher = Sha256::new();
@@ -43,8 +46,16 @@ impl DeviceIdentity {
         let device_id = hex::encode(&device_id_bytes[..16]);
 
         // Derive collision-resistant Virtual IP in 10.77.0.0/16 subnet
-        let ip_host3 = if device_id_bytes[0] == 0 { 1 } else { device_id_bytes[0] };
-        let ip_host4 = if device_id_bytes[1] == 0 { 2 } else { device_id_bytes[1] };
+        let ip_host3 = if device_id_bytes[0] == 0 {
+            1
+        } else {
+            device_id_bytes[0]
+        };
+        let ip_host4 = if device_id_bytes[1] == 0 {
+            2
+        } else {
+            device_id_bytes[1]
+        };
         let virtual_ip = format!("10.77.{}.{}", ip_host3, ip_host4);
 
         Self {
@@ -68,7 +79,8 @@ impl DeviceIdentity {
     /// Verifies that private key is NEVER exposed in serialized representation
     pub fn assert_secret_safety(&self) -> bool {
         let serialized = serde_json::to_string(self).unwrap_or_default();
-        !serialized.contains("private_key") && !serialized.contains(&hex::encode(&self.private_key_bytes))
+        !serialized.contains("private_key")
+            && !serialized.contains(&hex::encode(&self.private_key_bytes))
     }
 }
 
