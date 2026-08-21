@@ -1,8 +1,8 @@
+use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use x25519_dalek::{PublicKey, StaticSecret};
-use rand::rngs::OsRng;
 use std::fmt;
+use x25519_dalek::{PublicKey, StaticSecret};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DeviceIdentity {
@@ -34,10 +34,8 @@ impl DeviceIdentity {
         let public = PublicKey::from(&secret);
 
         let public_key_bytes = public.as_bytes();
-        let public_key_b64 = base64::Engine::encode(
-            &base64::engine::general_purpose::STANDARD,
-            public_key_bytes,
-        );
+        let public_key_b64 =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, public_key_bytes);
 
         // Derive deterministic Device ID from SHA-256 of Public Key
         let mut hasher = Sha256::new();

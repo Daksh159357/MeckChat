@@ -9,7 +9,9 @@ pub struct WireGuardSocketTransport {
 impl WireGuardSocketTransport {
     pub fn new(local_virtual_ip: &str, port: u16) -> Result<Self, String> {
         let addr_str = format!("{}:{}", local_virtual_ip, port);
-        let local_addr: SocketAddr = addr_str.parse().map_err(|e: std::net::AddrParseError| e.to_string())?;
+        let local_addr: SocketAddr = addr_str
+            .parse()
+            .map_err(|e: std::net::AddrParseError| e.to_string())?;
         Ok(Self { local_addr })
     }
 

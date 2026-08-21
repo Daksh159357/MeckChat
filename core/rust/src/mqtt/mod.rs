@@ -104,7 +104,10 @@ mod tests {
     fn test_mqtt_topic_structure() {
         let client = HiveMqSignalingClient::new(MqttConfig::default(), "dev123".into());
         assert_eq!(client.online_topic(), "meckchat/v1/presence/online/dev123");
-        assert_eq!(client.offline_topic(), "meckchat/v1/presence/offline/dev123");
+        assert_eq!(
+            client.offline_topic(),
+            "meckchat/v1/presence/offline/dev123"
+        );
         assert_eq!(client.signal_topic(), "meckchat/v1/signal/dev123");
     }
 }

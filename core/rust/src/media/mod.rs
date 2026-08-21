@@ -46,7 +46,12 @@ impl WebRtcSignalingMessage {
         }
     }
 
-    pub fn new_ice_candidate(call_id: String, sender: String, target: String, candidate: String) -> Self {
+    pub fn new_ice_candidate(
+        call_id: String,
+        sender: String,
+        target: String,
+        candidate: String,
+    ) -> Self {
         Self {
             call_id,
             sender_device_id: sender,

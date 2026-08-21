@@ -104,7 +104,8 @@ impl ResumableFileTransfer {
     ) -> Result<Vec<u8>, String> {
         let mut file = File::open(file_path).map_err(|e| e.to_string())?;
         let offset = sequence_number * chunk_size as u64;
-        file.seek(SeekFrom::Start(offset)).map_err(|e| e.to_string())?;
+        file.seek(SeekFrom::Start(offset))
+            .map_err(|e| e.to_string())?;
 
         let mut buffer = vec![0u8; chunk_size];
         let bytes_read = file.read(&mut buffer).map_err(|e| e.to_string())?;
@@ -143,7 +144,9 @@ mod tests {
     #[test]
     fn test_file_integrity_verification() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(b"Hello MeckChat File Transport!").unwrap();
+        temp_file
+            .write_all(b"Hello MeckChat File Transport!")
+            .unwrap();
 
         let mut hasher = Sha256::new();
         hasher.update(b"Hello MeckChat File Transport!");
