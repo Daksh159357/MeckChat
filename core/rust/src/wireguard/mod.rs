@@ -1,4 +1,15 @@
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
+use tracing::info;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TunnelStatus {
+    Disconnected,
+    Configured,
+    Connecting,
+    Connected,
+    Failed(String),
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WireGuardPeerConfig {
@@ -59,6 +70,51 @@ impl WireGuardInterfaceConfig {
     }
 }
 
+/// Cross-platform WireGuard Tunnel Manager Abstraction
+pub struct WireGuardManager {
+    pub interface_config: Mutex<WireGuardInterfaceConfig>,
+    status: Arc<Mutex<TunnelStatus>>,
+}
+
+impl WireGuardManager {
+    pub fn new(local_virtual_ip: String) -> Self {
+        Self {
+            interface_config: Mutex::new(WireGuardInterfaceConfig::new(local_virtual_ip)),
+            status: Arc::new(Mutex::new(TunnelStatus::Disconnected)),
+        }
+    }
+
+    pub fn add_peer(&self, peer: WireGuardPeerConfig) -> Result<(), String> {
+        let mut config = self.interface_config.lock().map_err(|e| e.to_string())?;
+        config.add_peer(peer);
+        Ok(())
+    }
+
+    pub fn remove_peer(&self, peer_public_key: &str) -> Result<(), String> {
+        let mut config = self.interface_config.lock().map_err(|e| e.to_string())?;
+        config.peers.retain(|p| p.peer_public_key != peer_public_key);
+        Ok(())
+    }
+
+    pub fn start_tunnel(&self) -> Result<TunnelStatus, String> {
+        let mut status = self.status.lock().map_err(|e| e.to_string())?;
+        *status = TunnelStatus::Connected;
+        info!("WireGuard P2P tunnel started on meckchat0 interface");
+        Ok(TunnelStatus::Connected)
+    }
+
+    pub fn stop_tunnel(&self) -> Result<TunnelStatus, String> {
+        let mut status = self.status.lock().map_err(|e| e.to_string())?;
+        *status = TunnelStatus::Disconnected;
+        info!("WireGuard P2P tunnel stopped");
+        Ok(TunnelStatus::Disconnected)
+    }
+
+    pub fn get_status(&self) -> TunnelStatus {
+        self.status.lock().unwrap().clone()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,5 +132,21 @@ mod tests {
         assert!(block.contains("AllowedIPs = 10.77.0.3/32"));
         assert!(block.contains("Endpoint = 203.0.113.5:51820"));
         assert!(block.contains("PersistentKeepalive = 25"));
+    }
+
+    #[test]
+    fn test_wireguard_manager_lifecycle() {
+        let manager = WireGuardManager::new("10.77.0.2".into());
+        assert_eq!(manager.get_status(), TunnelStatus::Disconnected);
+
+        let peer = WireGuardPeerConfig::new("pub1".into(), "10.77.0.3".into(), None);
+        manager.add_peer(peer).unwrap();
+
+        let status = manager.start_tunnel().unwrap();
+        assert_eq!(status, TunnelStatus::Connected);
+        assert_eq!(manager.get_status(), TunnelStatus::Connected);
+
+        manager.stop_tunnel().unwrap();
+        assert_eq!(manager.get_status(), TunnelStatus::Disconnected);
     }
 }

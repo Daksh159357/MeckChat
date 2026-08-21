@@ -41,6 +41,84 @@ pub struct OfflinePresencePayload {
     pub timestamp: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairRequestPayload {
+    pub sender_device_id: String,
+    pub target_device_id: String,
+    pub auth_token_hash: String,
+    pub salt: String,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairAcceptPayload {
+    pub sender_device_id: String,
+    pub target_device_id: String,
+    pub wireguard_public_key: String,
+    pub virtual_ip: String,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairRejectPayload {
+    pub sender_device_id: String,
+    pub target_device_id: String,
+    pub reason: String,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireGuardOfferPayload {
+    pub sender_device_id: String,
+    pub target_device_id: String,
+    pub public_key: String,
+    pub virtual_ip: String,
+    pub public_endpoint: Option<String>,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WireGuardAnswerPayload {
+    pub sender_device_id: String,
+    pub target_device_id: String,
+    pub public_key: String,
+    pub virtual_ip: String,
+    pub public_endpoint: Option<String>,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionStatePayload {
+    pub sender_device_id: String,
+    pub target_device_id: String,
+    pub state: String,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "msg_type", content = "payload")]
+pub enum SignalingMessage {
+    PresenceOnline(OnlinePresencePayload),
+    PresenceOffline(OfflinePresencePayload),
+    PairRequest(PairRequestPayload),
+    PairAccept(PairAcceptPayload),
+    PairReject(PairRejectPayload),
+    WireGuardOffer(WireGuardOfferPayload),
+    WireGuardAnswer(WireGuardAnswerPayload),
+    ConnectionState(ConnectionStatePayload),
+}
+
+impl SignalingMessage {
+    /// Asserts that NO application content (chat messages, file bytes, media) can be present
+    pub fn assert_no_application_data(&self) -> bool {
+        let json_str = serde_json::to_string(self).unwrap_or_default();
+        !json_str.contains("chat_message")
+            && !json_str.contains("file_chunk")
+            && !json_str.contains("file_bytes")
+            && !json_str.contains("private_key")
+    }
+}
+
 pub struct HiveMqSignalingClient {
     pub config: MqttConfig,
     pub device_id: String,
@@ -109,5 +187,22 @@ mod tests {
             "meckchat/v1/presence/offline/dev123"
         );
         assert_eq!(client.signal_topic(), "meckchat/v1/signal/dev123");
+    }
+
+    #[test]
+    fn test_signaling_message_data_plane_isolation() {
+        let msg = SignalingMessage::WireGuardOffer(WireGuardOfferPayload {
+            sender_device_id: "devA".into(),
+            target_device_id: "devB".into(),
+            public_key: "pubkey_wg_123".into(),
+            virtual_ip: "10.77.0.2".into(),
+            public_endpoint: Some("203.0.113.10:51820".into()),
+            timestamp: 1724242920,
+        });
+
+        assert!(msg.assert_no_application_data());
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(!json.contains("private_key"));
+        assert!(!json.contains("chat"));
     }
 }

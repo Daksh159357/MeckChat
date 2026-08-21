@@ -11,10 +11,13 @@ pub mod wireguard;
 pub use chat::{ChatDatabase, ChatMessage, MessageStatus};
 pub use files::{FileMetadata, ResumableFileTransfer, TransferStatus};
 pub use identity::DeviceIdentity;
-pub use mqtt::{HiveMqSignalingClient, MqttConfig, OnlinePresencePayload};
+pub use mqtt::{
+    HiveMqSignalingClient, MqttConfig, OfflinePresencePayload, OnlinePresencePayload,
+    SignalingMessage,
+};
 pub use pairing::{QRPairingPayload, SharedSecretPairing};
 pub use peers::{ConnectionState, PeerDevice, PeerRegistry};
-pub use wireguard::{WireGuardInterfaceConfig, WireGuardPeerConfig};
+pub use wireguard::{TunnelStatus, WireGuardInterfaceConfig, WireGuardManager, WireGuardPeerConfig};
 
 /// Version identifier of MeckChat core engine
 pub fn meckchat_core_version() -> &'static str {

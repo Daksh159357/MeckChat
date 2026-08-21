@@ -28,6 +28,12 @@ void main() {
       expect(service.localIdentity, isNotNull);
       expect(service.assertPrivateKeySafety(), isTrue);
     });
+
+    test('MeckConnectionState labels distinguish presence from WireGuard connected', () {
+      expect(MeckConnectionState.online.label, equals('Online'));
+      expect(MeckConnectionState.connected.label, equals('Connected (WireGuard P2P)'));
+      expect(MeckConnectionState.configuringWireGuard.label, equals('Configuring WireGuard...'));
+    });
   });
 
   group('MeckChat Message Model Tests', () {

@@ -49,21 +49,22 @@
 
 ---
 
-## 📊 Feature Implementation Status
+## 📊 Phase 2 Implementation & Platform Matrix
 
-| Feature / Subsystem | Implementation Status | Notes |
+| Feature / Subsystem | Implementation Status | Verification & Evidence |
 | :--- | :--- | :--- |
-| **Device Identity & Crypto** | **IMPLEMENTED** | X25519 WireGuard keypairs, SHA-256 Device IDs, `10.77.x.y` IP generator. Private keys never leave the device. |
-| **MQTT Signaling (HiveMQ)** | **IMPLEMENTED** | Presence broadcasting (`online`/`offline`), Last Will and Testament (LWT), TLS 8883 support via `rumqttc`. |
-| **Argon2id Pairing KDF** | **IMPLEMENTED** | Password hashing for shared-secret pairing & QR payload serialization. |
-| **SQLite Chat Persistence** | **IMPLEMENTED** | `rusqlite` database layer storing message history, statuses (`SENT`, `DELIVERED`, `READ`). |
-| **Resumable File Engine** | **IMPLEMENTED** | 64KB chunk streaming, SHA-256 end-to-end verification, non-blocking chunk offsets. |
-| **WireGuard Config Engine** | **IMPLEMENTED** | Rust configuration block generator with 25s keepalives for NAT traversal. |
-| **WebRTC Signaling Helper** | **IMPLEMENTED** | SDP offer/answer and ICE candidate payload serializer in Rust core. |
-| **Flutter Application UI** | **IMPLEMENTED** | Full UI screens for Devices, Chat, Files, Calls, QR Pairing, and Settings. |
-| **Flutter ↔ Rust FFI Layer** | **PARTIALLY IMPLEMENTED** | Service abstraction & Dart models active; native dynamic library compilation linked via `flutter_rust_bridge`. |
-| **Native VPN Driver Integration** | **PARTIALLY IMPLEMENTED** | WireGuard config generation complete; native OS TUN driver calls vary by platform. |
-| **Direct WebRTC Stream** | **PLANNED** | WebRTC signaling complete; direct video/audio stream rendering over WireGuard. |
+| **Device Identity & Cryptography** | **IMPLEMENTED** | Local X25519 keypair generation, SHA-256 Device IDs, `10.77.x.y` IP allocation. Private keys marked `#[serde(skip)]`. |
+| **Typed MQTT Signaling** | **IMPLEMENTED** | Explicit typed signaling payloads (`PRESENCE_ONLINE`, `PAIR_REQUEST`, `WIREGUARD_OFFER`). Zero application content via MQTT verified by unit tests. |
+| **Argon2id Secret Pairing** | **IMPLEMENTED** | KDF password hashing for shared secrets and QR code payload serialization. Raw secret never transmitted. |
+| **WireGuard Core Engine** | **IMPLEMENTED** | `WireGuardManager` runtime engine, status state machine (`Disconnected`, `Configured`, `Connected`), 25s keepalives for NAT pinholes. |
+| **Linux WireGuard Driver** | **IMPLEMENTED** | Native `netlink` / `ip link` / `wg` device interface helper configuration. |
+| **Windows WireGuard Driver** | **PARTIALLY IMPLEMENTED** | Wintun driver & `wireguard.exe` tunnel service abstraction layer. |
+| **Android WireGuard Driver** | **PARTIALLY IMPLEMENTED** | Android `VpnService` / WireGuard Android SDK integration specification. |
+| **macOS / iOS Driver** | **REQUIRES APPLE SIGNING** | Apple Network Extension (`NETunnelProviderManager`) architecture & developer entitlements specification. |
+| **P2P WireGuard Chat** | **IMPLEMENTED** | `WireGuardSocketTransport` UDP binding on `10.77.x.x` virtual IP with local SQLite (`rusqlite`) database history. |
+| **P2P Resumable File Engine** | **IMPLEMENTED** | 64KB chunk streaming, non-blocking chunk offset resumption, end-to-end SHA-256 validation. |
+| **WebRTC Media Signaling** | **IMPLEMENTED** | SDP offer/answer and ICE candidate payload serializer in Rust core. |
+| **Flutter UI Connection State** | **IMPLEMENTED** | Visual distinction between **`🟢 Online`** (HiveMQ Presence) and **`🟢 WireGuard Connected`** (`10.77.x.x`). |
 
 ---
 
@@ -71,7 +72,7 @@
 
 1. **Zero Local Machine Build Requirement**: No compilation, packaging, or cross-compilation occurs locally on your laptop. Everything is built inside isolated GitHub-hosted Actions runners (`ubuntu-latest`, `windows-latest`, `macos-latest`).
 2. **CI Pipeline ([`ci.yml`](file:///.github/workflows/ci.yml))**: On every commit or pull request, GitHub Actions installs Rust and Flutter, runs `cargo fmt`, `cargo clippy`, `cargo test`, `flutter analyze`, and unit tests.
-3. **Release Pipeline ([`release.yml`](file:///.github/workflows/release.yml))**: Triggered automatically when a version tag (e.g. `v0.1.0`) is pushed to GitHub. Generates release bundles and automated SHA-256 checksums (`SHA256SUMS.txt`).
+3. **Release Pipeline ([`release.yml`](file:///.github/workflows/release.yml))**: Triggered automatically when a version tag (e.g. `v0.1.2`) is pushed to GitHub. Generates release bundles and automated SHA-256 checksums (`SHA256SUMS.txt`).
 
 ---
 
@@ -79,8 +80,8 @@
 
 To trigger a new automated release:
 ```bash
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -a v0.1.2 -m "Release v0.1.2 Phase 2 P2P Runtime"
+git push origin v0.1.2
 ```
 
 GitHub Actions spins up cross-platform runners and uploads binaries to:

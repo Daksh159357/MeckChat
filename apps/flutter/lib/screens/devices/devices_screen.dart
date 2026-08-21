@@ -77,23 +77,51 @@ class DevicesScreen extends StatelessWidget {
                           device.displayName,
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                         ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade900,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'HiveMQ Online',
+                            style: TextStyle(fontSize: 10, color: Colors.cyanAccent),
+                          ),
+                        )
                       ],
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${device.platform} • VIP: ${device.virtualIp}',
+                          '${device.platform} • Virtual IP: ${device.virtualIp}',
                           style: const TextStyle(color: Colors.grey),
                         ),
-                        Text(
-                          'Status: ${device.state.label}',
-                          style: TextStyle(
-                            color: device.state == MeckConnectionState.connected
-                                ? Colors.greenAccent
-                                : Colors.amber,
-                            fontSize: 12,
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              device.state == MeckConnectionState.connected
+                                  ? Icons.lock
+                                  : Icons.lock_open,
+                              size: 12,
+                              color: device.state == MeckConnectionState.connected
+                                  ? Colors.greenAccent
+                                  : Colors.amber,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              device.state == MeckConnectionState.connected
+                                  ? 'WireGuard Connected (${device.virtualIp})'
+                                  : 'WireGuard Tunnel: ${device.state.label}',
+                              style: TextStyle(
+                                color: device.state == MeckConnectionState.connected
+                                    ? Colors.greenAccent
+                                    : Colors.amber,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
