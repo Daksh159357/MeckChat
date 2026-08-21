@@ -1,0 +1,6 @@
+package com.meckchat.meckchat
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity() {
+}
