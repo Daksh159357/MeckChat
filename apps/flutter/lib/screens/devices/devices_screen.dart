@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/device.dart';
 import '../../providers/presence_provider.dart';
 import '../chat/chat_screen.dart';
+import '../pairing/pairing_screen.dart';
 
 class DevicesScreen extends StatelessWidget {
   const DevicesScreen({super.key});
@@ -174,11 +175,11 @@ class DevicesScreen extends StatelessWidget {
                       final peer = presence.onlineDevices[index];
                       final isConnected =
                           peer.wireGuardStatus == WireGuardTunnelState.connected;
+                      final isPaired = peer.isPaired;
 
                       return Card(
-                        margin:
-                            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        color: Colors.grey.shade900,
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        color: const Color(0xFF1E293B),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -240,7 +241,7 @@ class DevicesScreen extends StatelessWidget {
                                   Text(
                                     isConnected
                                         ? 'WireGuard Connected (${peer.virtualIp})'
-                                        : 'WireGuard: ${peer.wireGuardStatus.label}',
+                                        : 'WireGuard: Not Connected',
                                     style: TextStyle(
                                       color: isConnected
                                           ? Colors.greenAccent
@@ -254,26 +255,34 @@ class DevicesScreen extends StatelessWidget {
                           ),
                           trailing: ElevatedButton(
                             onPressed: () async {
-                              if (peer.wireGuardStatus !=
-                                  WireGuardTunnelState.connected) {
-                                await presence.connectToDevice(peer.deviceId);
-                              }
-                              if (context.mounted) {
+                              if (isPaired) {
+                                if (peer.wireGuardStatus != WireGuardTunnelState.connected) {
+                                  await presence.connectToDevice(peer.deviceId);
+                                }
+                                if (context.mounted) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatScreen(device: peer),
+                                    ),
+                                  );
+                                }
+                              } else {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => ChatScreen(device: peer),
+                                    builder: (_) => PairingScreen(targetPeer: peer),
                                   ),
                                 );
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isConnected
+                              backgroundColor: isConnected || isPaired
                                   ? Colors.green
                                   : Colors.blueAccent,
                             ),
                             child: Text(
-                              isConnected ? 'Chat' : 'Connect',
+                              isPaired ? (isConnected ? 'Open Chat' : 'Connect') : 'Pair Device',
                             ),
                           ),
                         ),

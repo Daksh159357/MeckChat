@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/device.dart';
 import '../../models/message.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/presence_provider.dart';
 import '../calls/call_screen.dart';
 import '../files/file_transfer_screen.dart';
 
@@ -21,6 +22,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final chatProvider = Provider.of<ChatProvider>(context);
+    final presence = Provider.of<PresenceProvider>(context);
+    final localDeviceId = presence.localDevice?.deviceId ?? 'local_device';
     final messages = chatProvider.getMessages(widget.device.deviceId);
 
     return Scaffold(
@@ -30,7 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Text(widget.device.displayName),
             Text(
-              'WireGuard Tunnel (${widget.device.virtualIp})',
+              'WireGuard Tunnel (${widget.device.virtualIp.isNotEmpty ? widget.device.virtualIp : "10.77.x.y"})',
               style: const TextStyle(fontSize: 11, color: Colors.greenAccent),
             ),
           ],
@@ -77,55 +80,65 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final msg = messages[index];
-                final isMe = msg.senderDeviceId == 'my_device_id';
-                return Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isMe ? Colors.blueAccent.shade700 : Colors.grey.shade800,
-                      borderRadius: BorderRadius.circular(16),
+            child: messages.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No messages yet.\nMessages travel strictly over WireGuard P2P.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
                     ),
-                    child: Column(
-                      crossAxisAlignment:
-                          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          msg.content,
-                          style: const TextStyle(color: Colors.white, fontSize: 15),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}',
-                              style: const TextStyle(color: Colors.white54, fontSize: 10),
-                            ),
-                            if (isMe) ...[
-                              const SizedBox(width: 4),
-                              Icon(
-                                msg.status == MessageStatus.delivered
-                                    ? Icons.done_all
-                                    : Icons.done,
-                                size: 12,
-                                color: Colors.cyanAccent,
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = messages[index];
+                      final isMe = msg.senderDeviceId == localDeviceId;
+                      return Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.blueAccent.shade700 : Colors.grey.shade800,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                msg.content,
+                                style: const TextStyle(color: Colors.white, fontSize: 15),
                               ),
-                            ]
-                          ],
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}',
+                                    style: const TextStyle(color: Colors.white54, fontSize: 10),
+                                  ),
+                                  if (isMe) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      msg.status == MessageStatus.delivered
+                                          ? Icons.done_all
+                                          : Icons.done,
+                                      size: 12,
+                                      color: msg.status == MessageStatus.delivered
+                                          ? Colors.cyanAccent
+                                          : Colors.white54,
+                                    ),
+                                  ]
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           Container(
             padding: const EdgeInsets.all(8.0),
@@ -152,11 +165,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 const SizedBox(width: 8),
                 FloatingActionButton.small(
                   onPressed: () {
-                    if (_controller.text.trim().isNotEmpty) {
+                    final text = _controller.text.trim();
+                    if (text.isNotEmpty) {
                       chatProvider.sendMessage(
                         recipientDeviceId: widget.device.deviceId,
-                        senderDeviceId: 'my_device_id',
-                        content: _controller.text.trim(),
+                        senderDeviceId: localDeviceId,
+                        content: text,
+                        recipientVirtualIp: widget.device.virtualIp,
                       );
                       _controller.clear();
                     }

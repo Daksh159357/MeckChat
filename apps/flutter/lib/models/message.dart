@@ -23,6 +23,24 @@ class ChatMessage {
     this.status = MessageStatus.sent,
   });
 
+  ChatMessage copyWith({
+    String? messageId,
+    String? senderDeviceId,
+    String? recipientDeviceId,
+    String? content,
+    DateTime? timestamp,
+    MessageStatus? status,
+  }) {
+    return ChatMessage(
+      messageId: messageId ?? this.messageId,
+      senderDeviceId: senderDeviceId ?? this.senderDeviceId,
+      recipientDeviceId: recipientDeviceId ?? this.recipientDeviceId,
+      content: content ?? this.content,
+      timestamp: timestamp ?? this.timestamp,
+      status: status ?? this.status,
+    );
+  }
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
       messageId: json['message_id'],

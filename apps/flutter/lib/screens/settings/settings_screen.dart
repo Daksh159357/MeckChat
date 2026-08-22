@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/presence_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/meckchat_core_service.dart';
+import '../../services/mqtt_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -229,8 +230,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 port: port,
                 useTls: _useTls,
               );
+              if (localDevice != null) {
+                MqttService().initialize(
+                  localDevice: localDevice,
+                  host: _hostController.text.trim(),
+                  port: port,
+                  useTls: _useTls,
+                );
+              }
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('HiveMQ broker settings saved!')),
+                const SnackBar(content: Text('HiveMQ broker settings saved & reconnected!')),
               );
             },
             style: ElevatedButton.styleFrom(

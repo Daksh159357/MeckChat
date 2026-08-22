@@ -3,51 +3,64 @@ import 'package:provider/provider.dart';
 import '../../models/device.dart';
 import '../../models/file_transfer.dart';
 import '../../providers/file_transfer_provider.dart';
+import '../../providers/presence_provider.dart';
 
 class FileTransferScreen extends StatelessWidget {
-  final MeckDevice peerDevice;
+  final MeckDevice? peerDevice;
 
-  const FileTransferScreen({super.key, required this.peerDevice});
+  const FileTransferScreen({super.key, this.peerDevice});
 
   @override
   Widget build(BuildContext context) {
     final transferProvider = Provider.of<FileTransferProvider>(context);
-    final peerTransfers = transferProvider.transfers
-        .where((t) => t.peerDeviceId == peerDevice.deviceId)
-        .toList();
+    final presence = Provider.of<PresenceProvider>(context);
+    final pairedList = presence.pairedDevices;
+
+    final peerTransfers = peerDevice != null
+        ? transferProvider.transfers.where((t) => t.peerDeviceId == peerDevice!.deviceId).toList()
+        : transferProvider.transfers;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('File Transfer — ${peerDevice.displayName}'),
+        title: Text(peerDevice != null
+            ? 'File Transfer — ${peerDevice!.displayName}'
+            : 'Files (WireGuard Transport)'),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                transferProvider.startTransfer(
-                  filename: 'demo_file_5GB.mp4',
-                  totalBytes: 5 * 1024 * 1024 * 1024,
-                  sha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-                  peerDeviceId: peerDevice.deviceId,
-                );
-              },
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Send Large File over WireGuard'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                minimumSize: const Size.fromHeight(48),
+          if (peerDevice != null || pairedList.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final targetId = peerDevice?.deviceId ?? (pairedList.isNotEmpty ? pairedList.first.deviceId : '');
+                  if (targetId.isNotEmpty) {
+                    transferProvider.startTransfer(
+                      filename: 'mechat_file_transfer.bin',
+                      totalBytes: 50 * 1024 * 1024,
+                      sha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+                      peerDeviceId: targetId,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Send File over WireGuard P2P'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  minimumSize: const Size.fromHeight(48),
+                ),
               ),
             ),
-          ),
           Expanded(
             child: peerTransfers.isEmpty
                 ? const Center(
-                    child: Text(
-                      'No file transfers yet.\nAll files transfer directly via WireGuard P2P stream.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Text(
+                        'No file transfers yet.\nAll files transfer directly via WireGuard P2P data plane.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -56,7 +69,7 @@ class FileTransferScreen extends StatelessWidget {
                       final item = peerTransfers[index];
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        color: Colors.grey.shade900,
+                        color: const Color(0xFF1E293B),
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(

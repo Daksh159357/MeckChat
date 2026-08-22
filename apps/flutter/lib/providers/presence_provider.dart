@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/device.dart';
+import '../services/mqtt_service.dart';
+import '../services/paired_devices_service.dart';
+import '../services/pairing_service.dart';
 
 class PresenceProvider with ChangeNotifier {
   LocalDevice? _localDevice;
@@ -15,8 +18,13 @@ class PresenceProvider with ChangeNotifier {
       .where((d) => d.isOnline && _isDeviceFresh(d))
       .toList();
 
+  /// List of paired/trusted devices for the dedicated Chats section
+  List<PeerDevice> get pairedDevices =>
+      PairedDevicesService().pairedDevices.values.toList();
+
   PresenceProvider() {
     _startStalePresenceCleanupTimer();
+    _loadPairedDevices();
   }
 
   @override
@@ -25,9 +33,24 @@ class PresenceProvider with ChangeNotifier {
     super.dispose();
   }
 
+  Future<void> _loadPairedDevices() async {
+    await PairedDevicesService().loadPairedDevices();
+    notifyListeners();
+  }
+
+  /// Sets local device identity and connects to real HiveMQ MQTT broker over TLS (8883)
   void setLocalIdentity(LocalDevice device) {
     _localDevice = device;
     notifyListeners();
+
+    // Initialize MqttService and PairingService
+    MqttService().onPresenceReceived = handleIncomingPresence;
+    MqttService().initialize(localDevice: device);
+
+    PairingService().initialize(device);
+    PairingService().onPairingSuccess = () {
+      notifyListeners();
+    };
   }
 
   /// Updates local device name from Settings screen and broadcasts presence update
@@ -35,15 +58,15 @@ class PresenceProvider with ChangeNotifier {
     if (_localDevice != null) {
       _localDevice = _localDevice!.copyWith(displayName: newName);
       notifyListeners();
-      publishLocalPresence();
+      MqttService().publishOnlinePresence();
     }
   }
 
-  /// NO FAKE PEERS — Production presence initializer.
-  /// Clears stales and refreshes local presence state.
+  /// Refreshes local presence state and queries online peers over HiveMQ
   void refreshPresence() {
     _cleanupStalePeers();
-    publishLocalPresence();
+    MqttService().publishOnlinePresence();
+    MqttService().publishDiscoveryQuery();
     notifyListeners();
   }
 
@@ -57,43 +80,46 @@ class PresenceProvider with ChangeNotifier {
       return;
     }
 
-    final msgType = (json['type'] ?? json['msg_type'] ?? 'presence_online').toString().toLowerCase();
+    final msgType =
+        (json['type'] ?? json['msg_type'] ?? 'presence_online').toString().toLowerCase();
 
     if (msgType.contains('online')) {
+      final isPaired = PairedDevicesService().isPaired(incomingDeviceId);
       final peer = PeerDevice(
         deviceId: incomingDeviceId,
         displayName: json['display_name'] ?? 'Unknown Device',
         platform: json['platform'] ?? 'Unknown Platform',
         wireGuardPublicKey: json['wireguard_public_key'] ?? '',
         virtualIp: json['virtual_ip'] ?? '',
+        isPaired: isPaired,
         isOnline: true,
-        wireGuardStatus: WireGuardTunnelState.notConfigured,
+        wireGuardStatus: isPaired
+            ? WireGuardTunnelState.connected
+            : WireGuardTunnelState.notConfigured,
         lastSeen: DateTime.now(),
       );
+
       _remoteDevices[incomingDeviceId] = peer;
+
+      if (isPaired) {
+        PairedDevicesService().savePairedDevice(peer);
+      }
     } else if (msgType.contains('offline')) {
       _remoteDevices.remove(incomingDeviceId);
     }
     notifyListeners();
   }
 
-  /// Publishes local device presence payload to HiveMQ signaling plane
-  void publishLocalPresence() {
-    if (_localDevice == null) return;
-    debugPrint(
-        'Publishing HiveMQ Presence for ${_localDevice!.displayName} (${_localDevice!.deviceId})...');
-  }
-
   /// Initiates P2P WireGuard tunnel handshake with target peer device
   Future<void> connectToDevice(String deviceId) async {
-    final peer = _remoteDevices[deviceId];
+    final peer = _remoteDevices[deviceId] ?? PairedDevicesService().getPairedDevice(deviceId);
     if (peer == null) return;
 
     _updatePeerWireGuardState(deviceId, WireGuardTunnelState.connecting);
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     _updatePeerWireGuardState(deviceId, WireGuardTunnelState.configured);
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 300));
 
     _updatePeerWireGuardState(deviceId, WireGuardTunnelState.connected);
   }

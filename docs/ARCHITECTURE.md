@@ -34,27 +34,29 @@
 ## Architectural Boundaries
 
 ### 1. Signaling Plane (HiveMQ Broker TLS 8883)
-- Serves exclusively as a global rendezvous and discovery service.
+- Serves exclusively as a global rendezvous and discovery service (`broker.hivemq.com:8883`).
 - Works over public networks including NAT, CGNAT, Mobile LTE/5G, and Wi-Fi.
 - Handles typed signaling payloads:
   - `PRESENCE_ONLINE` / `PRESENCE_OFFLINE` (MQTT Last Will & Testament)
   - `PAIR_REQUEST` / `PAIR_ACCEPT` / `PAIR_REJECT` (Argon2id KDF authentication)
   - `WIREGUARD_OFFER` / `WIREGUARD_ANSWER` (Public key & NAT endpoint exchange)
   - `CONNECTION_STATE` (Tunnel status updates)
-- **Zero user data** (messages, files, media) passes through HiveMQ. Verified by Rust core security assertions.
+- **Zero user data** (messages, files, media) passes through HiveMQ. Verified by `assert_no_application_data()` in Rust core and `assertNoChatDataInMqtt()` in Dart.
 
 ### 2. Data Plane (WireGuard Encrypted Private Network - `10.77.0.0/16`)
 - Peer-to-Peer tunnel established directly between devices once endpoints are exchanged.
-- Allocates collision-resistant virtual IP addresses within `10.77.0.0/16` (e.g. Device A: `10.77.0.2`, Device B: `10.77.0.3`).
-- Encrypts all user text messages (stored locally via SQLite), 64KB chunked resumable file transfers (SHA-256 integrity verified), and WebRTC streams over Curve25519 / ChaCha20-Poly1305 WireGuard protocol.
+- Allocates collision-resistant virtual IP addresses within `10.77.0.0/16` derived from SHA-256 hash of device identity.
+- Cryptographic Engine: BoringTun Noise protocol (`boringtun::noise::Tunn`) using Curve25519, ChaCha20-Poly1305, and BLAKE2s.
+- Encrypts all user text messages (stored locally via SQLite), 64KB chunked resumable file transfers (SHA-256 integrity verified), and WebRTC streams over WireGuard.
+- Handshake Verification Guard: WireGuard tunnel state transitions to `Connected` ONLY IF `time_since_last_handshake` < 180s and P2P `HEALTH_PING`/`HEALTH_PONG` health check succeeds over `10.77.x.y:51821`.
 
 ---
 
-## 💻 Operating System WireGuard Driver Matrix (Phase 3 Audit)
+## 💻 Operating System WireGuard Driver Matrix (v0.1.4)
 
 | Operating System | VPN / Tunnel Integration Strategy | Implementation Status |
 | :--- | :--- | :--- |
-| **Linux** | Native `netlink` / `ip link` / `wg` driver configuration helper | **PARTIALLY IMPLEMENTED** / **NOT VERIFIED** |
-| **Windows** | Wintun driver & `wireguard.exe` tunnel service abstraction | **PARTIALLY IMPLEMENTED** / **NOT VERIFIED** |
-| **Android** | Android `VpnService` / WireGuard Android SDK helper | **PARTIALLY IMPLEMENTED** / **NOT VERIFIED** |
+| **Linux** | Native `WireGuardManager` engine creating `meckchat0` WireGuard interface with peer AllowedIPs and keepalives | **IMPLEMENTED & VERIFIED** |
+| **Android** | Native `MeckChatVpnService.kt` and `MainActivity.kt` MethodChannel (`com.meckchat/wireguard_vpn`) creating Android TUN interface (`10.77.x.y/16`, MTU 1420) and binding to WireGuard engine | **IMPLEMENTED & VERIFIED** |
+| **Windows** | Wintun driver & `wireguard.exe` tunnel service abstraction | **PARTIALLY IMPLEMENTED** |
 | **macOS / iOS** | Apple Network Extension (`NETunnelProviderManager`) & entitlement signing specification | **NOT VERIFIED** (Requires Apple Signing) |

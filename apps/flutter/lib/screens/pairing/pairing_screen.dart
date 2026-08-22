@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/device.dart';
 import '../../providers/presence_provider.dart';
+import '../../services/pairing_service.dart';
 
 class PairingScreen extends StatefulWidget {
-  const PairingScreen({super.key});
+  final PeerDevice? targetPeer;
+
+  const PairingScreen({super.key, this.targetPeer});
 
   @override
   State<PairingScreen> createState() => _PairingScreenState();
@@ -16,11 +19,13 @@ class _PairingScreenState extends State<PairingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _secretController = TextEditingController();
+  PeerDevice? _selectedPeer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _selectedPeer = widget.targetPeer;
   }
 
   String _buildQrPayload(LocalDevice? localDevice) {
@@ -33,6 +38,11 @@ class _PairingScreenState extends State<PairingScreen>
     final presence = Provider.of<PresenceProvider>(context);
     final localDevice = presence.localDevice;
     final qrData = _buildQrPayload(localDevice);
+    final onlinePeers = presence.onlineDevices;
+
+    if (_selectedPeer == null && onlinePeers.isNotEmpty) {
+      _selectedPeer = onlinePeers.first;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -78,7 +88,7 @@ class _PairingScreenState extends State<PairingScreen>
               ],
             ),
           ),
-          Padding(
+          SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,6 +103,33 @@ class _PairingScreenState extends State<PairingScreen>
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 const SizedBox(height: 16),
+                if (onlinePeers.isNotEmpty) ...[
+                  const Text('Select Target Device to Pair:', style: TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedPeer?.deviceId,
+                    dropdownColor: const Color(0xFF1E293B),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      filled: true,
+                    ),
+                    items: onlinePeers.map((peer) {
+                      return DropdownMenuItem<String>(
+                        value: peer.deviceId,
+                        child: Text(
+                          '${peer.displayName} (${peer.platform})',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedPeer = onlinePeers.firstWhere((p) => p.deviceId == val);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 TextField(
                   controller: _secretController,
                   obscureText: true,
@@ -104,12 +141,32 @@ class _PairingScreenState extends State<PairingScreen>
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () {
-                    if (_secretController.text.trim().isNotEmpty) {
+                  onPressed: () async {
+                    final secret = _secretController.text.trim();
+                    if (secret.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        const SnackBar(content: Text('Please enter a shared secret.')),
+                      );
+                      return;
+                    }
+
+                    if (_selectedPeer == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('No target peer selected for pairing.')),
+                      );
+                      return;
+                    }
+
+                    await PairingService().initiatePairing(
+                      targetPeer: _selectedPeer!,
+                      sharedSecret: secret,
+                    );
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
                           content: Text(
-                              'Argon2id authentication token derived & verified!'),
+                              'Argon2id pairing request sent to ${_selectedPeer!.displayName} over MQTT!'),
                           backgroundColor: Colors.green,
                         ),
                       );

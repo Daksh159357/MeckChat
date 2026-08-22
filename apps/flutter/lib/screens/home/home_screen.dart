@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../chat/chat_list_screen.dart';
 import '../devices/devices_screen.dart';
-import '../pairing/pairing_screen.dart';
+import '../files/file_transfer_screen.dart';
 import '../settings/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,7 +16,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _pages = const [
     DevicesScreen(),
-    PairingScreen(),
+    ChatListScreen(),
+    FileTransferScreen(),
     SettingsScreen(),
   ];
 
@@ -27,21 +29,19 @@ class _HomeScreenState extends State<HomeScreen> {
         children: _pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (idx) => setState(() => _selectedIndex = idx),
         selectedItemColor: Colors.cyanAccent,
         unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.grey.shade900,
+        backgroundColor: const Color(0xFF1E293B),
         items: const [
-          BottomNavigationBarViewItem(icon: Icon(Icons.devices), label: 'Devices'),
-          BottomNavigationBarViewItem(icon: Icon(Icons.qr_code_scanner), label: 'Pairing'),
-          BottomNavigationBarViewItem(icon: Icon(Icons.settings), label: 'Settings'),
+          BottomNavigationBarItem(icon: Icon(Icons.devices), label: 'Devices'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
+          BottomNavigationBarItem(icon: Icon(Icons.folder_outlined), label: 'Files'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
     );
   }
-}
-
-class BottomNavigationBarViewItem extends BottomNavigationBarItem {
-  const BottomNavigationBarViewItem({required super.icon, required super.label});
 }
