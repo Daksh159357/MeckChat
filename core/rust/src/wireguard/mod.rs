@@ -107,12 +107,11 @@ impl WireGuardManager {
         Ok(())
     }
 
-    /// Initializes real BoringTun Noise protocol handshake engine
+    /// Initializes BoringTun Noise protocol handshake engine (moves state to Connecting awaiting real handshake)
     pub fn start_tunnel(&self) -> Result<TunnelStatus, String> {
         let mut status = self.status.lock().map_err(|e| e.to_string())?;
         *status = TunnelStatus::Connecting;
 
-        // Initialize BoringTun Tunn instance for WireGuard Noise protocol
         let static_secret = StaticSecret::random();
         let peer_public = PublicKey::from(&static_secret);
 
@@ -126,17 +125,15 @@ impl WireGuardManager {
         );
 
         if tunn.is_ok() {
-            let mut handshake = self.last_handshake.lock().unwrap();
-            *handshake = Some(Instant::now());
-            *status = TunnelStatus::Connected;
-            info!("BoringTun WireGuard Noise Protocol tunnel started on meckchat0");
-            Ok(TunnelStatus::Connected)
+            info!("BoringTun WireGuard Noise Protocol engine initialized on meckchat0 (Connecting...)");
+            Ok(TunnelStatus::Connecting)
         } else {
             *status = TunnelStatus::Failed("BoringTun initialization error".into());
             Err("Failed to start BoringTun WireGuard engine".into())
         }
     }
 
+    /// Records an actual successful WireGuard Noise protocol handshake event
     pub fn record_handshake(&self) {
         let mut handshake = self.last_handshake.lock().unwrap();
         *handshake = Some(Instant::now());
@@ -151,23 +148,47 @@ impl WireGuardManager {
         *tx_guard += tx;
     }
 
+    /// Verifies if a real handshake occurred within the last 180 seconds
+    pub fn is_handshake_valid(&self) -> bool {
+        if let Some(instant) = *self.last_handshake.lock().unwrap() {
+            instant.elapsed() <= Duration::from_secs(180)
+        } else {
+            false
+        }
+    }
+
     pub fn get_metrics(&self) -> (TunnelStatus, u64, u64, Option<u64>) {
-        let status = self.status.lock().unwrap().clone();
+        let raw_status = self.status.lock().unwrap().clone();
         let rx = *self.rx_bytes.lock().unwrap();
         let tx = *self.tx_bytes.lock().unwrap();
         let handshake_secs = self.last_handshake.lock().unwrap().map(|t| t.elapsed().as_secs());
-        (status, rx, tx, handshake_secs)
+
+        let effective_status = match raw_status {
+            TunnelStatus::Connected => {
+                if self.is_handshake_valid() {
+                    TunnelStatus::Connected
+                } else {
+                    TunnelStatus::Connecting
+                }
+            }
+            s => s,
+        };
+
+        (effective_status, rx, tx, handshake_secs)
     }
 
     pub fn stop_tunnel(&self) -> Result<TunnelStatus, String> {
         let mut status = self.status.lock().map_err(|e| e.to_string())?;
         *status = TunnelStatus::Disconnected;
+        let mut handshake = self.last_handshake.lock().unwrap();
+        *handshake = None;
         info!("WireGuard P2P tunnel stopped");
         Ok(TunnelStatus::Disconnected)
     }
 
     pub fn get_status(&self) -> TunnelStatus {
-        self.status.lock().unwrap().clone()
+        let (status, _, _, _) = self.get_metrics();
+        status
     }
 }
 
@@ -200,7 +221,11 @@ mod tests {
         assert_eq!(manager.get_status(), TunnelStatus::Configured);
 
         let status = manager.start_tunnel().unwrap();
-        assert_eq!(status, TunnelStatus::Connected);
+        assert_eq!(status, TunnelStatus::Connecting);
+        assert_eq!(manager.get_status(), TunnelStatus::Connecting);
+
+        // Record real handshake event
+        manager.record_handshake();
         assert_eq!(manager.get_status(), TunnelStatus::Connected);
 
         manager.record_traffic(1024, 2048);

@@ -22,12 +22,12 @@ jobs:
       - name: Rust Code Format Check
         run: |
           cd core/rust
-          cargo fmt --check || true
+          cargo fmt --check
 
       - name: Rust Clippy Check
         run: |
           cd core/rust
-          cargo clippy -- -D warnings || true
+          cargo clippy -- -D warnings
 
       - name: Run Rust Core Unit Tests
         run: |

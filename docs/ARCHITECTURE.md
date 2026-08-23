@@ -46,17 +46,17 @@
 ### 2. Data Plane (WireGuard Encrypted Private Network - `10.77.0.0/16`)
 - Peer-to-Peer tunnel established directly between devices once endpoints are exchanged.
 - Allocates collision-resistant virtual IP addresses within `10.77.0.0/16` derived from SHA-256 hash of device identity.
-- Cryptographic Engine: BoringTun Noise protocol (`boringtun::noise::Tunn`) using Curve25519, ChaCha20-Poly1305, and BLAKE2s.
+- Cryptographic Engine: Official WireGuard GoBackend (`com.wireguard.android:tunnel`) on Android and BoringTun Noise protocol (`boringtun::noise::Tunn`) on Linux using Curve25519, ChaCha20-Poly1305, and BLAKE2s.
 - Encrypts all user text messages (stored locally via SQLite), 64KB chunked resumable file transfers (SHA-256 integrity verified), and WebRTC streams over WireGuard.
 - Handshake Verification Guard: WireGuard tunnel state transitions to `Connected` ONLY IF `time_since_last_handshake` < 180s and P2P `HEALTH_PING`/`HEALTH_PONG` health check succeeds over `10.77.x.y:51821`.
 
 ---
 
-## 💻 Operating System WireGuard Driver Matrix (v0.1.4)
+## 💻 Operating System WireGuard Driver Matrix
 
 | Operating System | VPN / Tunnel Integration Strategy | Implementation Status |
 | :--- | :--- | :--- |
 | **Linux** | Native `WireGuardManager` engine creating `meckchat0` WireGuard interface with peer AllowedIPs and keepalives | **IMPLEMENTED & VERIFIED** |
-| **Android** | Native `MeckChatVpnService.kt` and `MainActivity.kt` MethodChannel (`com.meckchat/wireguard_vpn`) creating Android TUN interface (`10.77.x.y/16`, MTU 1420) and binding to WireGuard engine | **IMPLEMENTED & VERIFIED** |
+| **Android** | Official `wireguard-android` SDK (`GoBackend`) integrated in `MeckChatVpnService.kt` and `MainActivity.kt` MethodChannel (`com.meckchat/wireguard_vpn`) for real WireGuard Noise protocol, handshakes, and statistics | **IMPLEMENTED & VERIFIED** |
 | **Windows** | Wintun driver & `wireguard.exe` tunnel service abstraction | **PARTIALLY IMPLEMENTED** |
 | **macOS / iOS** | Apple Network Extension (`NETunnelProviderManager`) & entitlement signing specification | **NOT VERIFIED** (Requires Apple Signing) |
