@@ -155,7 +155,7 @@ class MqttService {
   }
 
   /// Processes an incoming MQTT message with self-filtering.
-  void _handleIncomingMessage(MqttReceivedMessage<MqttMessage> received) {
+  void _handleIncomingMessage(MqttReceivedMessage<MqttMessage?> received) {
     try {
       final topic = received.topic;
       final pubMsg = received.payload as MqttPublishMessage;
