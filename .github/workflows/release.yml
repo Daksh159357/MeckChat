@@ -120,7 +120,6 @@ jobs:
       - name: Setup Flutter Android Project & Build
         run: |
           cd apps/flutter
-          flutter create --org com.meckchat --platforms=android .
           flutter pub get
           flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
