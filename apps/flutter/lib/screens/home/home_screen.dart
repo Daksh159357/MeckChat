@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/device.dart';
-import '../../providers/presence_provider.dart';
-import '../../services/mqtt_service.dart';
+import 'package:meckchat/models/device.dart';
+import 'package:meckchat/providers/presence_provider.dart';
+import 'package:meckchat/services/mqtt_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

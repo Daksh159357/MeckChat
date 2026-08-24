@@ -3,8 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import '../models/device.dart';
-import '../services/mqtt_service.dart';
+import 'package:meckchat/models/device.dart';
+import 'package:meckchat/services/mqtt_service.dart';
 
 class PresenceProvider extends ChangeNotifier {
   static const String prefKeyDeviceId = 'meckchat_device_id';

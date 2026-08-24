@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'providers/presence_provider.dart';
-import 'screens/home/home_screen.dart';
+import 'package:meckchat/providers/presence_provider.dart';
+import 'package:meckchat/screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

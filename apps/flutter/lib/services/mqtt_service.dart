@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
-import '../models/device.dart';
+import 'package:meckchat/models/device.dart';
 
 enum MqttStatus { disconnected, connecting, connected }
 
