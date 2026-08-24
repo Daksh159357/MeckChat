@@ -204,10 +204,10 @@ jobs:
       - name: Verify & Generate SHA256 Checksums
         run: |
           mkdir -p release-files
-          cp release-downloads/MeckChat-Linux.tar.gz release-files/MeckChat-Linux.tar.gz
-          cp release-downloads/MeckChat-Windows.zip release-files/MeckChat-Windows.zip
-          cp release-downloads/MeckChat-Android.apk release-files/MeckChat-Android.apk
-          cp release-downloads/MeckChat-macOS.zip release-files/MeckChat-macOS.zip
+          find release-downloads -name "MeckChat-Linux.tar.gz" -exec cp {} release-files/ \;
+          find release-downloads -name "MeckChat-Windows.zip" -exec cp {} release-files/ \;
+          find release-downloads -name "MeckChat-Android.apk" -exec cp {} release-files/ \;
+          find release-downloads -name "MeckChat-macOS.zip" -exec cp {} release-files/ \;
           
           test -s release-files/MeckChat-Linux.tar.gz
           test -s release-files/MeckChat-Windows.zip
