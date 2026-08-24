@@ -112,7 +112,7 @@ impl WireGuardManager {
         let mut status = self.status.lock().map_err(|e| e.to_string())?;
         *status = TunnelStatus::Connecting;
 
-        let static_secret = StaticSecret::random();
+        let static_secret = StaticSecret::random_from_rng(&mut rand::rngs::OsRng);
         let peer_public = PublicKey::from(&static_secret);
 
         let tunn = Tunn::new(
