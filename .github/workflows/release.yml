@@ -222,6 +222,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          name: MeckChat Release ${{ github.ref_name }}
           files: |
             release-files/MeckChat-Android.apk
             release-files/MeckChat-Windows.zip
@@ -230,7 +232,6 @@ jobs:
             release-files/SHA256SUMS.txt
           draft: false
           prerelease: false
-          name: MeckChat Release ${{ github.ref_name }}
           body: |
             ## MeckChat Global Encrypted P2P Communication Release ${{ github.ref_name }}
 
