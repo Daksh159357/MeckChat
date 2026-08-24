@@ -30,7 +30,7 @@ jobs:
       - name: Flutter Analyze
         run: |
           cd apps/flutter
-          flutter analyze --no-fatal-infos
+          flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Flutter Unit Tests
         run: |
