@@ -6,8 +6,7 @@ plugins {
 
 android {
     namespace "com.meckchat.meckchat"
-    compileSdk 36
-    ndkVersion "28.2.13676358"
+    compileSdk 34
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -21,9 +20,9 @@ android {
     defaultConfig {
         applicationId "com.meckchat.meckchat"
         minSdk 21
-        targetSdk 36
+        targetSdk 34
         versionCode 1
-        versionName "0.1.5"
+        versionName "0.1.16"
     }
 
     buildTypes {

@@ -123,6 +123,7 @@ jobs:
           if [ ! -d "android" ]; then
             flutter create --org com.meckchat --platforms=android .
           fi
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           flutter pub get
           flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
 
