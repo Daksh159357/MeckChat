@@ -56,7 +56,6 @@ class MqttService {
     final clientId = 'mc_${localDevice.deviceId}_${DateTime.now().millisecondsSinceEpoch % 10000}';
     _client = MqttServerClient.withPort(brokerHost, clientId, brokerPort);
     _client!.secure = true;
-    _client!.securityContext = null; // Standard trusted CA bundle
     _client!.keepAlivePeriod = 30;
     _client!.autoReconnect = true;
     _client!.resubscribeOnAutoReconnect = true;
@@ -67,7 +66,6 @@ class MqttService {
       'type': 'presence_offline',
       'device_id': localDevice.deviceId,
     });
-    final willMsg = MqttClientPayloadBuilder().addString(willPayload).payload;
 
     final connMessage = MqttConnectMessage()
         .withClientIdentifier(clientId)

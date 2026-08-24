@@ -29,9 +29,7 @@ jobs:
       - name: Setup Flutter Linux Project & Build
         run: |
           cd apps/flutter
-          if [ ! -d "linux" ]; then
-            flutter create --org com.meckchat --platforms=linux .
-          fi
+          flutter create --org com.meckchat --platforms=linux .
           flutter pub get
           flutter build linux --release
 
@@ -69,8 +67,9 @@ jobs:
       - name: Setup Flutter Android Project & Build
         run: |
           cd apps/flutter
+          flutter create --org com.meckchat --platforms=android .
           flutter pub get
-          flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation
+          flutter build apk --release --no-tree-shake-icons
 
       - name: Verify & Rename Android APK
         run: |
