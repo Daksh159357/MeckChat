@@ -24,6 +24,7 @@ jobs:
         run: |
           cd apps/flutter
           flutter create --org com.meckchat --platforms=android,linux .
+          rm -f test/widget_test.dart
           flutter pub get
 
       - name: Flutter Analyze

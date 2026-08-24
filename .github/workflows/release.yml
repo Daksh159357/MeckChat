@@ -30,6 +30,7 @@ jobs:
         run: |
           cd apps/flutter
           flutter create --org com.meckchat --platforms=linux .
+          rm -f test/widget_test.dart
           flutter pub get
           flutter build linux --release
 
@@ -68,6 +69,7 @@ jobs:
         run: |
           cd apps/flutter
           flutter create --org com.meckchat --platforms=android .
+          rm -f test/widget_test.dart
           flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
