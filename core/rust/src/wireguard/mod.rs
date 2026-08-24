@@ -246,15 +246,18 @@ mod tests {
         manager.record_handshake();
         assert_eq!(manager.get_status(), TunnelStatus::Connected);
 
-        // Manually simulate stale handshake (>180s ago)
+        // Manually simulate stale handshake (>180s ago) using checked_sub (panic-safe on low-uptime CI runners)
         let mut handshake = manager.last_handshake.lock().unwrap();
-        *handshake = Some(Instant::now() - Duration::from_secs(200));
+        *handshake = Instant::now().checked_sub(Duration::from_secs(200));
         drop(handshake);
 
         assert_eq!(manager.get_status(), TunnelStatus::Connecting);
         let (status, _, _, handshake_secs) = manager.get_metrics();
         assert_eq!(status, TunnelStatus::Connecting);
-        assert!(handshake_secs.unwrap() >= 200);
+        if let Some(secs) = handshake_secs {
+            assert!(secs >= 200);
+        }
     }
 }
+
 
