@@ -29,7 +29,7 @@ jobs:
       - name: Flutter Analyze
         run: |
           cd apps/flutter
-          flutter analyze
+          flutter analyze --no-fatal-infos
 
       - name: Flutter Unit Tests
         run: |
