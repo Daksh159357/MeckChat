@@ -21,6 +21,8 @@ class MqttService {
   bool _isConnected = false;
   bool get isConnected => _isConnected;
 
+  Timer? _heartbeatTimer;
+
   OnPresenceReceivedCallback? onPresenceReceived;
   OnSignalReceivedCallback? onSignalReceived;
   VoidCallback? onConnectionStatusChanged;
@@ -49,7 +51,7 @@ class MqttService {
     // Cleanup previous client if existing
     disconnect();
 
-    debugPrint('Initializing MQTT connection to $_host:$_port as client $clientId...');
+    debugPrint('[MQTT] Initializing connection to $_host:$_port as client $clientId...');
     _client = MqttServerClient.withPort(_host, clientId, _port);
     _client!.logging(on: false);
     _client!.keepAlivePeriod = 30;
@@ -66,6 +68,7 @@ class MqttService {
     // Configure Last Will and Testament (LWT) for unexpected disconnects
     final lwtTopic = 'meckchat/v1/presence/offline/$deviceId';
     final lwtPayloadStr = jsonEncode({
+      'type': 'presence_offline',
       'protocol_version': '1.0',
       'device_id': deviceId,
       'status': 'offline',
@@ -89,22 +92,23 @@ class MqttService {
       final status = await _client!.connect();
       if (status?.state == MqttConnectionState.connected) {
         _isConnected = true;
-        debugPrint('MQTT CONNECTED');
+        debugPrint('[MQTT] CONNECTED successfully');
         _setupSubscriptionListeners();
         _subscribeToTopics();
         publishOnlinePresence();
         publishDiscoveryQuery();
+        _startPeriodicPresenceHeartbeat();
         onConnectionStatusChanged?.call();
         return true;
       } else {
-        debugPrint('MQTT connection failed: state ${status?.state}');
+        debugPrint('[MQTT] Connection failed: state ${status?.state}');
         _isConnected = false;
         _client!.disconnect();
         onConnectionStatusChanged?.call();
         return false;
       }
     } catch (e) {
-      debugPrint('MQTT Exception during connect: $e');
+      debugPrint('[MQTT] Exception during connect: $e');
       _isConnected = false;
       onConnectionStatusChanged?.call();
       return false;
@@ -113,18 +117,23 @@ class MqttService {
 
   void _onConnected() {
     _isConnected = true;
-    debugPrint('MQTT CONNECTED');
+    debugPrint('[MQTT] CONNECTED (callback)');
+    _subscribeToTopics();
+    publishOnlinePresence();
+    publishDiscoveryQuery();
+    _startPeriodicPresenceHeartbeat();
     onConnectionStatusChanged?.call();
   }
 
   void _onDisconnected() {
     _isConnected = false;
-    debugPrint('MQTT DISCONNECTED');
+    _heartbeatTimer?.cancel();
+    debugPrint('[MQTT] DISCONNECTED');
     onConnectionStatusChanged?.call();
   }
 
   void _onSubscribed(String topic) {
-    debugPrint('MQTT SUBSCRIBED: $topic');
+    debugPrint('[MQTT] SUBSCRIBED to topic: $topic');
   }
 
   void _subscribeToTopics() {
@@ -139,6 +148,7 @@ class MqttService {
     _client!.subscribe(offlineTopic, MqttQos.atLeastOnce);
     _client!.subscribe(discoveryTopic, MqttQos.atMostOnce);
     _client!.subscribe(signalTopic, MqttQos.atLeastOnce);
+    debugPrint('[MQTT] All signaling topics subscribed.');
   }
 
   void _setupSubscriptionListeners() {
@@ -159,38 +169,50 @@ class MqttService {
             if (incomingDeviceId != null &&
                 _localDevice != null &&
                 incomingDeviceId == _localDevice!.deviceId) {
-              // Self device filter — skip
-              return;
+              // Self device filter — skip this message and continue processing
+              continue;
             }
             final platformStr = (json['platform'] ?? 'unknown').toString();
             debugPrint(
-                'MQTT PRESENCE RECEIVED: device_id=${_redact(incomingDeviceId)}, platform=$platformStr');
+                '[MQTT] PRESENCE RECEIVED: device_id=${_redact(incomingDeviceId)}, platform=$platformStr');
             onPresenceReceived?.call(json);
           } else if (topic.startsWith('meckchat/v1/presence/offline/')) {
             final incomingDeviceId = json['device_id'] as String?;
             if (incomingDeviceId != null &&
                 _localDevice != null &&
                 incomingDeviceId == _localDevice!.deviceId) {
-              return;
+              continue;
             }
-            debugPrint('PEER REMOVED: device_id=${_redact(incomingDeviceId)}');
+            debugPrint('[MQTT] PEER REMOVED: device_id=${_redact(incomingDeviceId)}');
             json['type'] = 'presence_offline';
             onPresenceReceived?.call(json);
           } else if (topic == 'meckchat/v1/discovery') {
             final requester = json['requester_device_id'] as String?;
+            debugPrint('[MQTT] DISCOVERY QUERY RECEIVED from requester=${_redact(requester)}');
             if (requester != null &&
                 _localDevice != null &&
                 requester != _localDevice!.deviceId) {
-              // Peer requested discovery — re-publish our online presence
+              // Peer requested discovery — re-publish local online presence immediately
               publishOnlinePresence();
             }
           } else if (_localDevice != null &&
               topic == 'meckchat/v1/signal/${_localDevice!.deviceId}') {
+            debugPrint('[MQTT] SIGNAL RECEIVED on topic: $topic');
             onSignalReceived?.call(json);
           }
         } catch (e) {
-          debugPrint('Error parsing MQTT payload on topic $topic: $e');
+          debugPrint('[MQTT] Error parsing payload on topic $topic: $e');
         }
+      }
+    });
+  }
+
+  /// Starts 30-second periodic presence heartbeat timer to keep peer devices fresh
+  void _startPeriodicPresenceHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_isConnected && _localDevice != null) {
+        publishOnlinePresence();
       }
     });
   }
@@ -201,6 +223,7 @@ class MqttService {
 
     final topic = 'meckchat/v1/presence/online/${_localDevice!.deviceId}';
     final payload = {
+      'type': 'presence_online',
       'protocol_version': '1.0',
       'device_id': _localDevice!.deviceId,
       'display_name': _localDevice!.displayName,
@@ -213,7 +236,7 @@ class MqttService {
     final builder = MqttClientPayloadBuilder();
     builder.addString(jsonEncode(payload));
     _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!, retain: true);
-    debugPrint('MQTT PRESENCE PUBLISHED');
+    debugPrint('[MQTT] PRESENCE HEARTBEAT PUBLISHED for device_id=${_redact(_localDevice!.deviceId)}');
   }
 
   /// Publishes offline status payload upon graceful shutdown
@@ -222,6 +245,7 @@ class MqttService {
 
     final topic = 'meckchat/v1/presence/offline/${_localDevice!.deviceId}';
     final payload = {
+      'type': 'presence_offline',
       'protocol_version': '1.0',
       'device_id': _localDevice!.deviceId,
       'status': 'offline',
@@ -231,6 +255,7 @@ class MqttService {
     final builder = MqttClientPayloadBuilder();
     builder.addString(jsonEncode(payload));
     _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!, retain: true);
+    debugPrint('[MQTT] OFFLINE PRESENCE PUBLISHED for device_id=${_redact(_localDevice!.deviceId)}');
   }
 
   /// Publishes discovery query asking online peers to re-announce presence
@@ -246,6 +271,7 @@ class MqttService {
     final builder = MqttClientPayloadBuilder();
     builder.addString(jsonEncode(payload));
     _client!.publishMessage(topic, MqttQos.atMostOnce, builder.payload!, retain: false);
+    debugPrint('[MQTT] DISCOVERY QUERY BROADCAST SENT');
   }
 
   /// Sends direct WireGuard signaling payload to target peer's signal topic
@@ -254,7 +280,7 @@ class MqttService {
       throw ArgumentError('DATA PLANE ISOLATION VIOLATION: Chat or file data cannot be published to MQTT!');
     }
     if (_client == null || !_isConnected) {
-      debugPrint('Cannot send MQTT signal: Client not connected.');
+      debugPrint('[MQTT] Cannot send signal: Client not connected.');
       return;
     }
 
@@ -262,7 +288,7 @@ class MqttService {
     final builder = MqttClientPayloadBuilder();
     builder.addString(jsonEncode(signalPayload));
     _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!, retain: false);
-    debugPrint('MQTT SIGNAL PUBLISHED to $topic');
+    debugPrint('[MQTT] SIGNAL PUBLISHED to target=${_redact(targetDeviceId)}');
   }
 
   /// Asserts that NO chat content, file bytes, or private keys can be published to MQTT
@@ -276,6 +302,7 @@ class MqttService {
   }
 
   void disconnect() {
+    _heartbeatTimer?.cancel();
     if (_client != null) {
       try {
         publishOfflinePresence();

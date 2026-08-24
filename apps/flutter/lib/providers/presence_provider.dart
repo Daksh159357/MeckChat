@@ -88,6 +88,7 @@ class PresenceProvider with ChangeNotifier {
 
     // RULE: Self device MUST NOT appear as a remote peer
     if (_localDevice != null && incomingDeviceId == _localDevice!.deviceId) {
+      debugPrint('[MQTT] SELF DEVICE FILTERED: device_id=${_redact(incomingDeviceId)}');
       return;
     }
 
@@ -112,12 +113,14 @@ class PresenceProvider with ChangeNotifier {
       );
 
       _remoteDevices[incomingDeviceId] = peer;
+      debugPrint('[MQTT] PEER ADDED/UPDATED: device_id=${_redact(incomingDeviceId)}, name=${peer.displayName}, platform=${peer.platform}');
 
       if (isPaired) {
         PairedDevicesService().savePairedDevice(peer);
       }
     } else if (msgType.contains('offline')) {
       _remoteDevices.remove(incomingDeviceId);
+      debugPrint('[MQTT] PEER REMOVED (OFFLINE SIGNAL): device_id=${_redact(incomingDeviceId)}');
     }
     notifyListeners();
   }
@@ -215,11 +218,18 @@ class PresenceProvider with ChangeNotifier {
     _remoteDevices.removeWhere(
         (id, peer) => now.difference(peer.lastSeen).inSeconds > 90);
     if (_remoteDevices.length != initialCount) {
+      debugPrint('[MQTT] STALE PEER CLEANUP: Removed ${initialCount - _remoteDevices.length} expired peer(s)');
       notifyListeners();
     }
   }
 
   bool _isDeviceFresh(PeerDevice device) {
     return DateTime.now().difference(device.lastSeen).inSeconds <= 90;
+  }
+
+  String _redact(String? str) {
+    if (str == null || str.isEmpty) return 'none';
+    if (str.length <= 6) return '***';
+    return '${str.substring(0, 3)}...${str.substring(str.length - 3)}';
   }
 }
