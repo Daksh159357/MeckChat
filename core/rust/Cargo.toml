@@ -6,7 +6,7 @@ authors = ["MeckChat Contributors"]
 description = "Core networking, cryptography, WireGuard signaling, and P2P engine for MeckChat"
 
 [lib]
-crate-type = ["cdylib", "staticlib", "rlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 rumqttc = "0.24.0"
