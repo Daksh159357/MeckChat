@@ -18,8 +18,8 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
         elevation: 0,
-        title: const Row(
-          children: [
+        title: Row(
+          children: const [
             Icon(Icons.hub_rounded, color: Color(0xFF38BDF8), size: 24),
             SizedBox(width: 10),
             Text(
@@ -224,10 +224,10 @@ class HomeScreen extends StatelessWidget {
               InkWell(
                 onTap: () => _showEditNameDialog(context, provider, device.displayName),
                 borderRadius: BorderRadius.circular(6),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   child: Row(
-                    children: [
+                    children: const [
                       Icon(Icons.edit_rounded, color: Color(0xFF38BDF8), size: 14),
                       SizedBox(width: 4),
                       Text(
@@ -350,9 +350,9 @@ class HomeScreen extends StatelessWidget {
                         color: const Color(0xFF22C55E).withAlpha(30),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
+                        children: const [
                           Icon(Icons.circle, color: Color(0xFF22C55E), size: 8),
                           SizedBox(width: 4),
                           Text(
@@ -393,8 +393,8 @@ class HomeScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF334155)),
       ),
-      child: const Column(
-        children: [
+      child: Column(
+        children: const [
           Icon(Icons.wifi_tethering_rounded, color: Color(0xFF64748B), size: 40),
           SizedBox(height: 12),
           Text(
