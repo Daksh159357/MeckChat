@@ -30,7 +30,7 @@ impl fmt::Debug for DeviceIdentity {
 
 impl DeviceIdentity {
     pub fn new(device_name: String, platform: String) -> Self {
-        let secret = StaticSecret::random_from_rng(&mut OsRng);
+        let secret = StaticSecret::random_from_rng(OsRng);
         let public = PublicKey::from(&secret);
 
         let public_key_bytes = public.as_bytes();
