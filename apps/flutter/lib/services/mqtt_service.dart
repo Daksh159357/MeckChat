@@ -147,7 +147,7 @@ class MqttService {
     debugPrint('[MQTT] Subscribed: $topicDiscovery');
 
     _subscriptionStream?.cancel();
-    _subscriptionStream = _client!.updates?.listen((List<MqttReceivedMessage<MqttMessage>> messages) {
+    _subscriptionStream = _client!.updates?.listen((messages) {
       for (final received in messages) {
         _handleIncomingMessage(received);
       }
