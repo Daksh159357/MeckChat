@@ -1,213 +1,153 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import '../models/device.dart';
 import '../services/mqtt_service.dart';
-import '../services/p2p_chat_service.dart';
-import '../services/paired_devices_service.dart';
-import '../services/pairing_service.dart';
 
-class PresenceProvider with ChangeNotifier {
-  static const _vpnChannel = MethodChannel('com.meckchat/wireguard_vpn');
+class PresenceProvider extends ChangeNotifier {
+  static const String prefKeyDeviceId = 'meckchat_device_id';
+  static const String prefKeyDeviceName = 'meckchat_device_name';
 
-  LocalDevice? _localDevice;
-  LocalDevice? get localDevice => _localDevice;
+  final MqttService _mqttService;
+  final SharedPreferences? _prefsOverride;
 
-  final Map<String, PeerDevice> _remoteDevices = {};
-  Timer? _expirationTimer;
-  Timer? _handshakeMonitorTimer;
+  Device? _localDevice;
+  final Map<String, Device> _remoteDevices = {};
+  Timer? _staleCleanupTimer;
+  bool _isInitialized = false;
 
-  /// Remote online devices list — populated ONLY from real MQTT presence messages.
-  /// Strictly excludes local device identity and fake/mock devices.
-  List<PeerDevice> get onlineDevices => _remoteDevices.values
-      .where((d) => d.isOnline && _isDeviceFresh(d))
-      .toList();
-
-  /// List of paired/trusted devices for the dedicated Chats section
-  List<PeerDevice> get pairedDevices =>
-      PairedDevicesService().pairedDevices.values.toList();
-
-  PresenceProvider() {
-    _startStalePresenceCleanupTimer();
-    _startHandshakeMonitoring();
-    _loadPairedDevices();
+  PresenceProvider({
+    MqttService? mqttService,
+    SharedPreferences? prefs,
+  })  : _mqttService = mqttService ?? MqttService(),
+        _prefsOverride = prefs {
+    _setupMqttCallbacks();
   }
 
-  @override
-  void dispose() {
-    _expirationTimer?.cancel();
-    _handshakeMonitorTimer?.cancel();
-    super.dispose();
+  Device? get localDevice => _localDevice;
+  MqttStatus get status => _mqttService.status;
+  bool get isConnected => _mqttService.isConnected;
+  bool get isInitialized => _isInitialized;
+
+  /// Returns only real remote devices discovered over MQTT.
+  List<Device> get onlineDevices {
+    final now = DateTime.now();
+    return _remoteDevices.values
+        .where((d) => d.isOnline && now.difference(d.lastSeen).inSeconds <= 90)
+        .toList()
+      ..sort((a, b) => a.displayName.compareTo(b.displayName));
   }
 
-  Future<void> _loadPairedDevices() async {
-    await PairedDevicesService().loadPairedDevices();
-    notifyListeners();
-  }
-
-  /// Sets local device identity and connects to real HiveMQ MQTT broker over TLS (8883)
-  void setLocalIdentity(LocalDevice device) {
-    _localDevice = device;
-    notifyListeners();
-
-    // Start local P2P WireGuard chat server socket listener on 10.77.x.x:51821
-    P2PChatService().startListener();
-
-    // Initialize MqttService and PairingService
-    MqttService().onPresenceReceived = handleIncomingPresence;
-    MqttService().initialize(localDevice: device);
-
-    PairingService().initialize(device);
-    PairingService().onPairingSuccess = () {
+  void _setupMqttCallbacks() {
+    _mqttService.onStatusChanged = (newStatus) {
       notifyListeners();
+    };
+
+    _mqttService.onDevicePresenceReceived = (device) {
+      // Do not add self
+      if (_localDevice != null && device.deviceId == _localDevice!.deviceId) {
+        return;
+      }
+
+      device.lastSeen = DateTime.now();
+      device.isOnline = true;
+      _remoteDevices[device.deviceId] = device;
+      debugPrint('[MQTT] Remote peer added/updated: ${device.displayName} (${device.platform})');
+      notifyListeners();
+    };
+
+    _mqttService.onDeviceOfflineReceived = (deviceId) {
+      if (_remoteDevices.containsKey(deviceId)) {
+        _remoteDevices.remove(deviceId);
+        debugPrint('[MQTT] Remote peer removed (offline): id=$deviceId');
+        notifyListeners();
+      }
     };
   }
 
-  /// Updates local device name from Settings screen and broadcasts presence update
-  void updateLocalDeviceName(String newName) {
-    if (_localDevice != null) {
-      _localDevice = _localDevice!.copyWith(displayName: newName);
-      notifyListeners();
-      MqttService().publishOnlinePresence();
-    }
-  }
+  /// Initializes the local device identity and connects to MQTT.
+  Future<void> initialize() async {
+    if (_isInitialized) return;
 
-  /// Refreshes local presence state and queries online peers over HiveMQ
-  void refreshPresence() {
-    _cleanupStalePeers();
-    MqttService().publishOnlinePresence();
-    MqttService().publishDiscoveryQuery();
-    notifyListeners();
-  }
+    final prefs = _prefsOverride ?? await SharedPreferences.getInstance();
 
-  /// Handles incoming MQTT presence payload from HiveMQ topic
-  void handleIncomingPresence(Map<String, dynamic> json) {
-    final incomingDeviceId = json['device_id'] as String?;
-    if (incomingDeviceId == null || incomingDeviceId.isEmpty) return;
-
-    // RULE: Self device MUST NOT appear as a remote peer
-    if (_localDevice != null && incomingDeviceId == _localDevice!.deviceId) {
-      debugPrint('[MQTT] SELF DEVICE FILTERED: device_id=${_redact(incomingDeviceId)}');
-      return;
-    }
-
-    final msgType =
-        (json['type'] ?? json['msg_type'] ?? 'presence_online').toString().toLowerCase();
-
-    if (msgType.contains('online')) {
-      final isPaired = PairedDevicesService().isPaired(incomingDeviceId);
-      final existingState = _remoteDevices[incomingDeviceId]?.wireGuardStatus ??
-          (isPaired ? WireGuardTunnelState.connecting : WireGuardTunnelState.notConfigured);
-
-      final peer = PeerDevice(
-        deviceId: incomingDeviceId,
-        displayName: json['display_name'] ?? 'Unknown Device',
-        platform: json['platform'] ?? 'Unknown Platform',
-        wireGuardPublicKey: json['wireguard_public_key'] ?? '',
-        virtualIp: json['virtual_ip'] ?? '',
-        isPaired: isPaired,
-        isOnline: true,
-        wireGuardStatus: existingState,
-        lastSeen: DateTime.now(),
-      );
-
-      _remoteDevices[incomingDeviceId] = peer;
-      debugPrint('[MQTT] PEER ADDED/UPDATED: device_id=${_redact(incomingDeviceId)}, name=${peer.displayName}, platform=${peer.platform}');
-
-      if (isPaired) {
-        PairedDevicesService().savePairedDevice(peer);
-      }
-    } else if (msgType.contains('offline')) {
-      _remoteDevices.remove(incomingDeviceId);
-      debugPrint('[MQTT] PEER REMOVED (OFFLINE SIGNAL): device_id=${_redact(incomingDeviceId)}');
-    }
-    notifyListeners();
-  }
-
-  /// Initiates P2P WireGuard tunnel setup and verifies real handshake & 10.77.x.x health check
-  Future<void> connectToDevice(String deviceId) async {
-    final peer = _remoteDevices[deviceId] ?? PairedDevicesService().getPairedDevice(deviceId);
-    if (peer == null || _localDevice == null) return;
-
-    _updatePeerWireGuardState(deviceId, WireGuardTunnelState.connecting);
-
-    // 1. Configure Native Android / Desktop WireGuard Engine
-    if (!kIsWeb && Platform.isAndroid) {
-      try {
-        final isPrepared = await _vpnChannel.invokeMethod<bool>('prepareVpn');
-        if (isPrepared == true) {
-          await _vpnChannel.invokeMethod<bool>('startVpn', {
-            'virtual_ip': _localDevice!.virtualIp,
-            'private_key': _localDevice!.wireGuardPrivateKey,
-            'peer_public_key': peer.wireGuardPublicKey,
-            'peer_virtual_ip': peer.virtualIp,
-          });
-        }
-      } catch (e) {
-        debugPrint('Android WireGuard MethodChannel error: $e');
-      }
-    }
-
-    _updatePeerWireGuardState(deviceId, WireGuardTunnelState.configured);
-
-    // 2. Perform Real 10.77.x.x P2P Socket Health Check (HEALTH_PING / HEALTH_PONG) over WireGuard
-    final isReachable = await P2PChatService().performWireGuardHealthCheck(peer.virtualIp);
-
-    if (isReachable) {
-      _updatePeerWireGuardState(deviceId, WireGuardTunnelState.connected);
-      // Flush offline pending messages upon verified WireGuard connection
-      await P2PChatService().flushPendingMessages(peer.deviceId, peer.virtualIp);
+    // 1. Get or generate persistent Device ID
+    var deviceId = prefs.getString(prefKeyDeviceId);
+    if (deviceId == null || deviceId.isEmpty) {
+      deviceId = 'mc_${const Uuid().v4()}';
+      await prefs.setString(prefKeyDeviceId, deviceId);
+      debugPrint('[Identity] Generated new persistent Device ID: $deviceId');
     } else {
-      _updatePeerWireGuardState(deviceId, WireGuardTunnelState.disconnected);
+      debugPrint('[Identity] Loaded persistent Device ID: $deviceId');
+    }
+
+    // 2. Determine platform
+    String platformStr = 'linux';
+    if (!kIsWeb) {
+      try {
+        if (Platform.isAndroid) {
+          platformStr = 'android';
+        } else if (Platform.isLinux) {
+          platformStr = 'linux';
+        } else if (Platform.isWindows) {
+          platformStr = 'windows';
+        } else if (Platform.isMacOS) {
+          platformStr = 'macos';
+        }
+      } catch (_) {}
+    }
+
+    // 3. Get or set default Device Name
+    var deviceName = prefs.getString(prefKeyDeviceName);
+    if (deviceName == null || deviceName.isEmpty) {
+      deviceName = platformStr == 'android' ? 'Android Phone' : 'Linux Laptop';
+      await prefs.setString(prefKeyDeviceName, deviceName);
+    }
+
+    _localDevice = Device(
+      deviceId: deviceId,
+      displayName: deviceName,
+      platform: platformStr,
+    );
+
+    _isInitialized = true;
+    notifyListeners();
+
+    // 4. Start periodic cleanup of stale peers (every 15s)
+    _startStaleCleanupTimer();
+
+    // 5. Connect to MQTT
+    await _mqttService.connect(_localDevice!);
+  }
+
+  /// Updates the display name of this device persistently and republishes presence.
+  Future<void> setDeviceName(String newName) async {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty || _localDevice == null) return;
+
+    _localDevice!.displayName = trimmed;
+    final prefs = _prefsOverride ?? await SharedPreferences.getInstance();
+    await prefs.setString(prefKeyDeviceName, trimmed);
+
+    debugPrint('[Identity] Updated Device Name to: $trimmed');
+    _mqttService.publishOnlinePresence();
+    notifyListeners();
+  }
+
+  /// Triggers a manual MQTT reconnect.
+  Future<void> reconnect() async {
+    if (_localDevice != null) {
+      _mqttService.disconnect();
+      await _mqttService.connect(_localDevice!);
     }
   }
 
-  void _startHandshakeMonitoring() {
-    _handshakeMonitorTimer?.cancel();
-    _handshakeMonitorTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-      if (_localDevice == null) return;
-
-      for (final entry in _remoteDevices.entries) {
-        final peer = entry.value;
-        if (!peer.isPaired || peer.virtualIp.isEmpty) continue;
-
-        // Verify Android Native WireGuard stats or socket reachability
-        if (!kIsWeb && Platform.isAndroid) {
-          try {
-            final stats = await _vpnChannel.invokeMapMethod<String, dynamic>('getTunnelStats', {
-              'peer_public_key': peer.wireGuardPublicKey,
-            });
-            if (stats != null && stats['status'] == 'Connected') {
-              _updatePeerWireGuardState(peer.deviceId, WireGuardTunnelState.connected);
-              continue;
-            }
-          } catch (_) {}
-        }
-
-        // Socket health check verification over 10.77.x.x:51821
-        final isHealthy = await P2PChatService().performWireGuardHealthCheck(peer.virtualIp);
-        if (isHealthy && peer.wireGuardStatus != WireGuardTunnelState.connected) {
-          _updatePeerWireGuardState(peer.deviceId, WireGuardTunnelState.connected);
-          await P2PChatService().flushPendingMessages(peer.deviceId, peer.virtualIp);
-        } else if (!isHealthy && peer.wireGuardStatus == WireGuardTunnelState.connected) {
-          _updatePeerWireGuardState(peer.deviceId, WireGuardTunnelState.disconnected);
-        }
-      }
-    });
-  }
-
-  void _updatePeerWireGuardState(String deviceId, WireGuardTunnelState state) {
-    if (_remoteDevices.containsKey(deviceId)) {
-      _remoteDevices[deviceId] =
-          _remoteDevices[deviceId]!.copyWith(wireGuardStatus: state);
-      notifyListeners();
-    }
-  }
-
-  void _startStalePresenceCleanupTimer() {
-    _expirationTimer?.cancel();
-    _expirationTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+  /// Starts the 15-second timer to clean up peers that haven't sent a heartbeat in >90s.
+  void _startStaleCleanupTimer() {
+    _staleCleanupTimer?.cancel();
+    _staleCleanupTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _cleanupStalePeers();
     });
   }
@@ -217,19 +157,17 @@ class PresenceProvider with ChangeNotifier {
     final initialCount = _remoteDevices.length;
     _remoteDevices.removeWhere(
         (id, peer) => now.difference(peer.lastSeen).inSeconds > 90);
+
     if (_remoteDevices.length != initialCount) {
-      debugPrint('[MQTT] STALE PEER CLEANUP: Removed ${initialCount - _remoteDevices.length} expired peer(s)');
+      debugPrint('[MQTT] Cleaned up ${initialCount - _remoteDevices.length} stale peer(s)');
       notifyListeners();
     }
   }
 
-  bool _isDeviceFresh(PeerDevice device) {
-    return DateTime.now().difference(device.lastSeen).inSeconds <= 90;
-  }
-
-  String _redact(String? str) {
-    if (str == null || str.isEmpty) return 'none';
-    if (str.length <= 6) return '***';
-    return '${str.substring(0, 3)}...${str.substring(str.length - 3)}';
+  @override
+  void dispose() {
+    _staleCleanupTimer?.cancel();
+    _mqttService.dispose();
+    super.dispose();
   }
 }

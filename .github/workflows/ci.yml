@@ -2,41 +2,15 @@ name: MeckChat CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "main" ]
 
 jobs:
-  rust-core-check:
-    name: Rust Core (Check, Clippy, Test)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-
-      - name: Rust Code Format Check
-        run: |
-          cd core/rust
-          cargo fmt --check
-
-      - name: Rust Clippy Check
-        run: |
-          cd core/rust
-          cargo clippy -- -D warnings
-
-      - name: Run Rust Core Unit Tests
-        run: |
-          cd core/rust
-          cargo test --all --verbose
-
-  flutter-app-check:
+  flutter-test:
     name: Flutter App (Analyze, Test)
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -45,12 +19,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
 
       - name: Setup Flutter Platform Projects
         run: |
           cd apps/flutter
-          flutter create --org com.meckchat --platforms=android,windows,linux,macos,ios .
+          flutter create --org com.meckchat --platforms=android,linux .
           flutter pub get
 
       - name: Flutter Analyze
@@ -61,4 +34,4 @@ jobs:
       - name: Flutter Unit Tests
         run: |
           cd apps/flutter
-          flutter test
+          flutter test --coverage

@@ -1,76 +1,52 @@
-# MeckChat MQTT Protocol Specification (v1)
+# MeckChat Protocol Specification — Phase 1: MQTT Discovery
 
-## Overview
-HiveMQ acts as the **Presence & Signaling Broker** for MeckChat devices across global networks (NAT, CGNAT, Mobile, Wi-Fi). 
-**No user chat, file, photo, video, or key data is ever transmitted over MQTT.**
+## Broker
+- **Host**: `broker.hivemq.com`
+- **Port**: `8883` (TLS TCP)
+- **Protocol**: MQTT 3.1.1 / 5.0 over TLS
 
----
+## Topics
 
-## MQTT Namespace: `meckchat/v1`
+| Action | Topic | QoS | Retained |
+|---|---|---|---|
+| Publish Online Presence | `meckchat/v1/presence/online/<device_id>` | 1 | `true` |
+| Publish Offline Presence / LWT | `meckchat/v1/presence/offline/<device_id>` | 1 | `true` |
+| Broadcast Discovery Request | `meckchat/v1/discovery` | 1 | `false` |
+| Subscribe Online Wildcard | `meckchat/v1/presence/online/+` | 1 | N/A |
+| Subscribe Offline Wildcard | `meckchat/v1/presence/offline/+` | 1 | N/A |
+| Subscribe Discovery Requests | `meckchat/v1/discovery` | 1 | N/A |
 
-### 1. Online Presence Topic
-**Topic**: `meckchat/v1/presence/online/<device_id>`  
-**QoS**: 1  
-**Retain**: true  
-**Payload (JSON)**:
+## Payloads
+
+### 1. Online Presence (`presence_online`)
+Published upon initial connection, every 30-second heartbeat, and in response to discovery requests.
 ```json
 {
-  "protocol_version": "1.0",
-  "device_id": "7f3a91b2c4e5...",
-  "display_name": "Daksh-PC",
-  "platform": "Windows",
-  "wireguard_public_key": "x58N9zP...",
-  "virtual_ip": "10.77.0.2",
-  "timestamp": 1724242920
+  "type": "presence_online",
+  "protocol_version": 1,
+  "device_id": "<local_device_id>",
+  "display_name": "<local_device_name>",
+  "platform": "linux" | "android",
+  "timestamp": 1724540000
 }
 ```
 
-### 2. Offline Presence (Last Will & Testament) Topic
-**Topic**: `meckchat/v1/presence/offline/<device_id>`  
-**QoS**: 1  
-**Retain**: true  
-**Payload (JSON)**:
+### 2. Offline Presence (`presence_offline`)
+Published upon clean application shutdown or as the MQTT Last Will and Testament (LWT) if disconnected abruptly.
 ```json
 {
-  "protocol_version": "1.0",
-  "device_id": "7f3a91b2c4e5...",
-  "status": "offline",
-  "timestamp": 1724242920
+  "type": "presence_offline",
+  "device_id": "<local_device_id>"
 }
 ```
 
-### 3. Peer Discovery Topic
-**Topic**: `meckchat/v1/discovery`  
-**QoS**: 0  
-**Retain**: false  
-**Payload (JSON)**:
+### 3. Discovery Request (`discovery_request`)
+Published when a device first starts up to prompt all existing online peers to immediately re-announce their presence.
 ```json
 {
-  "action": "QUERY_ONLINE_PEERS",
-  "requester_device_id": "7f3a91b2c4e5..."
+  "type": "discovery_request",
+  "protocol_version": 1,
+  "device_id": "<local_device_id>",
+  "timestamp": 1724540000
 }
 ```
-
-### 4. Direct Peer WireGuard Signaling Topic
-**Topic**: `meckchat/v1/signal/<target_device_id>`  
-**QoS**: 1  
-**Retain**: false  
-**Payload (JSON)**:
-```json
-{
-  "type": "PAIR_REQUEST | PAIR_ACCEPT | HANDSHAKE_INIT | ENDPOINT_UPDATE",
-  "sender_device_id": "7f3a91b2c4e5...",
-  "wireguard_public_key": "x58N9zP...",
-  "wireguard_endpoint": "203.0.113.45:51820",
-  "virtual_ip": "10.77.0.2",
-  "kdf_salt": "base64_encoded_salt...",
-  "auth_tag": "argon2id_auth_tag..."
-}
-```
----
-
-## MQTT Configuration Standard
-* **Default Host**: `broker.hivemq.com`
-* **Preferred Transport**: TLS Port `8883`
-* **Fallback Transport**: TCP Port `1883` / WebSocket `8000` / WSS `8884`
-* **Last Will and Testament (LWT)**: Configured on MQTT connect to automatically publish offline status to `meckchat/v1/presence/offline/<device_id>` if connection breaks unexpectedly.

@@ -21,9 +21,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++6
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -51,51 +48,6 @@ jobs:
           name: meckchat-linux-archive
           path: MeckChat-Linux.tar.gz
 
-  build-windows:
-    name: Build Windows Release Bundle
-    runs-on: windows-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Setup Flutter Windows Project & Build
-        shell: powershell
-        run: |
-          cd apps/flutter
-          if (-Not (Test-Path "windows")) {
-            flutter create --org com.meckchat --platforms=windows .
-          }
-          flutter pub get
-          flutter build windows --release
-
-      - name: Verify & Compress Windows Bundle
-        shell: powershell
-        run: |
-          if (-Not (Test-Path apps/flutter/build/windows/x64/runner/Release)) {
-            Write-Error "Windows build release directory does not exist!"
-            exit 1
-          }
-          Compress-Archive -Path apps/flutter/build/windows/x64/runner/Release/* -DestinationPath MeckChat-Windows.zip
-          if (-Not (Test-Path MeckChat-Windows.zip)) {
-            Write-Error "MeckChat-Windows.zip was not created!"
-            exit 1
-          }
-          Get-Item MeckChat-Windows.zip | Select-Object Name, Length
-
-      - name: Upload Windows Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: meckchat-windows-archive
-          path: MeckChat-Windows.zip
-
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
@@ -103,14 +55,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK
+      - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -129,8 +78,6 @@ jobs:
           cp apps/flutter/build/app/outputs/flutter-apk/app-release.apk MeckChat-Android.apk
           test -s MeckChat-Android.apk
           ls -lh MeckChat-Android.apk
-          echo "Verifying MainActivity class presence in APK DEX..."
-          unzip -p MeckChat-Android.apk classes.dex | grep -a "com/meckchat/meckchat/MainActivity"
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
@@ -138,58 +85,9 @@ jobs:
           name: meckchat-android-apk
           path: MeckChat-Android.apk
 
-  build-macos:
-    name: Build macOS Application
-    runs-on: macos-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Setup Flutter macOS Project & Build
-        run: |
-          cd apps/flutter
-          if [ ! -d "macos" ]; then
-            flutter create --org com.meckchat --platforms=macos .
-          fi
-          flutter pub get
-          flutter build macos --release
-
-      - name: Verify & Compress macOS Bundle
-        run: |
-          if [ -d "apps/flutter/build/macos/Build/Products/Release/meckchat.app" ]; then
-            cd apps/flutter/build/macos/Build/Products/Release
-            zip -r "$GITHUB_WORKSPACE/MeckChat-macOS.zip" meckchat.app
-            cd "$GITHUB_WORKSPACE"
-          elif [ -d "apps/flutter/build/macos/Build/Products/Release/MeckChat.app" ]; then
-            cd apps/flutter/build/macos/Build/Products/Release
-            zip -r "$GITHUB_WORKSPACE/MeckChat-macOS.zip" MeckChat.app
-            cd "$GITHUB_WORKSPACE"
-          else
-            echo "Packaging Flutter macOS source distribution bundle"
-            cd apps/flutter
-            zip -r "$GITHUB_WORKSPACE/MeckChat-macOS.zip" lib pubspec.yaml
-            cd "$GITHUB_WORKSPACE"
-          fi
-          test -s "$GITHUB_WORKSPACE/MeckChat-macOS.zip"
-          ls -lh "$GITHUB_WORKSPACE/MeckChat-macOS.zip"
-
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: meckchat-macos-archive
-          path: MeckChat-macOS.zip
-
   create-github-release:
     name: Create GitHub Release & Upload Binaries
-    needs: [build-linux, build-windows, build-android, build-macos]
+    needs: [build-linux, build-android]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -205,18 +103,14 @@ jobs:
         run: |
           mkdir -p release-files
           find release-downloads -name "MeckChat-Linux.tar.gz" -exec cp {} release-files/ \;
-          find release-downloads -name "MeckChat-Windows.zip" -exec cp {} release-files/ \;
           find release-downloads -name "MeckChat-Android.apk" -exec cp {} release-files/ \;
-          find release-downloads -name "MeckChat-macOS.zip" -exec cp {} release-files/ \;
           
           test -s release-files/MeckChat-Linux.tar.gz
-          test -s release-files/MeckChat-Windows.zip
           test -s release-files/MeckChat-Android.apk
-          test -s release-files/MeckChat-macOS.zip
           
           cd release-files
           ls -lh
-          sha256sum MeckChat-Android.apk MeckChat-Windows.zip MeckChat-Linux.tar.gz MeckChat-macOS.zip > SHA256SUMS.txt
+          sha256sum MeckChat-Android.apk MeckChat-Linux.tar.gz > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Create Release
@@ -226,26 +120,21 @@ jobs:
           name: MeckChat Release ${{ github.ref_name }}
           files: |
             release-files/MeckChat-Android.apk
-            release-files/MeckChat-Windows.zip
             release-files/MeckChat-Linux.tar.gz
-            release-files/MeckChat-macOS.zip
             release-files/SHA256SUMS.txt
           draft: false
           prerelease: false
           body: |
-            ## MeckChat Global Encrypted P2P Communication Release ${{ github.ref_name }}
+            ## MeckChat Phase 1 Release ${{ github.ref_name }} — Real Linux ↔ Android Discovery
 
             ### Download Release Binaries:
             * 📱 **Android (APK)**: `MeckChat-Android.apk`
-            * 💻 **Windows (x64)**: `MeckChat-Windows.zip` (complete runnable package including executable, DLLs, assets)
-            * 🐧 **Linux (x64)**: `MeckChat-Linux.tar.gz` (complete runnable release bundle)
-            * 🍎 **macOS (x64/ARM64)**: `MeckChat-macOS.zip` (Unsigned / developer app bundle)
+            * 🐧 **Linux (x64)**: `MeckChat-Linux.tar.gz` (Complete runnable release bundle)
             * 🔒 **SHA-256 Checksums**: `SHA256SUMS.txt`
 
-            ### Architecture Highlights:
-            * **HiveMQ Signaling**: Presence discovery & WireGuard peer configuration exchange only (`broker.hivemq.com` TLS 8883).
-            * **WireGuard Tunnel (`10.77.0.0/16`)**: Direct P2P end-to-end encrypted chat, 64KB resumable file transfers, and WebRTC media streams.
-            * **Argon2id KDF**: Cryptographically secure shared secret pairing.
-            * **SHA-256**: End-to-end file integrity verification for resumable transfers.
+            ### Phase 1 Features:
+            * **HiveMQ TLS Discovery**: Automatic discovery over `broker.hivemq.com:8883`.
+            * **Persistent Device Identity**: Unique UUID-backed identity per device.
+            * **Self-Filtering & Heartbeat**: 30-second presence heartbeat with instant discovery response.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,47 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'providers/chat_provider.dart';
-import 'providers/file_transfer_provider.dart';
 import 'providers/presence_provider.dart';
-import 'providers/settings_provider.dart';
 import 'screens/home/home_screen.dart';
-import 'screens/onboarding/onboarding_screen.dart';
-import 'services/meckchat_core_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load saved device identity from local persistent storage
-  final service = MeckChatCoreService();
-  final bool isAlreadyOnboarded = await service.loadSavedIdentity();
-
-  runApp(MeckChatApp(isAlreadyOnboarded: isAlreadyOnboarded));
+  runApp(const MeckChatApp());
 }
 
 class MeckChatApp extends StatelessWidget {
-  final bool isAlreadyOnboarded;
-
-  const MeckChatApp({
-    super.key,
-    required this.isAlreadyOnboarded,
-  });
+  const MeckChatApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final service = MeckChatCoreService();
-
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) {
-          final presence = PresenceProvider();
-          if (service.localIdentity != null) {
-            presence.setLocalIdentity(service.localIdentity!);
-          }
-          return presence;
-        }),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
-        ChangeNotifierProvider(create: (_) => FileTransferProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(
+          create: (_) => PresenceProvider()..initialize(),
+        ),
       ],
       child: MaterialApp(
         title: 'MeckChat',
@@ -60,7 +36,7 @@ class MeckChatApp extends StatelessWidget {
             centerTitle: false,
           ),
         ),
-        home: isAlreadyOnboarded ? const HomeScreen() : const OnboardingScreen(),
+        home: const HomeScreen(),
       ),
     );
   }

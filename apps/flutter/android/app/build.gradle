@@ -22,7 +22,7 @@ android {
         minSdk 21
         targetSdk 34
         versionCode 1
-        versionName "0.1.16"
+        versionName "0.1.0"
     }
 
     buildTypes {
@@ -35,8 +35,3 @@ android {
 flutter {
     source "../.."
 }
-
-dependencies {
-    implementation 'com.wireguard.android:tunnel:1.0.20230707'
-}
-
