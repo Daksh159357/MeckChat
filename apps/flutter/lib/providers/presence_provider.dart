@@ -17,12 +17,15 @@ class PresenceProvider extends ChangeNotifier {
   final Map<String, Device> _remoteDevices = {};
   Timer? _staleCleanupTimer;
   bool _isInitialized = false;
+  final bool _autoStartTimer;
 
   PresenceProvider({
     MqttService? mqttService,
     SharedPreferences? prefs,
+    bool autoStartTimer = true,
   })  : _mqttService = mqttService ?? MqttService(),
-        _prefsOverride = prefs {
+        _prefsOverride = prefs,
+        _autoStartTimer = autoStartTimer {
     _setupMqttCallbacks();
   }
 
@@ -118,7 +121,9 @@ class PresenceProvider extends ChangeNotifier {
     notifyListeners();
 
     // 4. Start periodic cleanup of stale peers (every 15s)
-    _startStaleCleanupTimer();
+    if (_autoStartTimer) {
+      _startStaleCleanupTimer();
+    }
 
     // 5. Connect to MQTT
     await _mqttService.connect(_localDevice!);
