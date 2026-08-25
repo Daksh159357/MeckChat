@@ -33,18 +33,12 @@ class MockMqttService extends MqttService {
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
-
   group('PresenceProvider Tests', () {
-    test('Device ID is generated with mc_ prefix and persisted across restarts', () async {
+    testWidgets('Device ID is generated with mc_ prefix and persisted across restarts', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final prefs1 = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
       final mock1 = MockMqttService();
-      final provider1 = PresenceProvider(mqttService: mock1, prefs: prefs1, autoStartTimer: false);
+      final provider1 = PresenceProvider(mqttService: mock1, prefs: prefs, autoStartTimer: false);
       await provider1.initialize();
 
       expect(provider1.localDevice, isNotNull);
@@ -55,13 +49,13 @@ void main() {
 
       // Re-initialize with same storage
       final mock2 = MockMqttService();
-      final provider2 = PresenceProvider(mqttService: mock2, prefs: prefs1, autoStartTimer: false);
+      final provider2 = PresenceProvider(mqttService: mock2, prefs: prefs, autoStartTimer: false);
       await provider2.initialize();
       expect(provider2.localDevice!.deviceId, equals(id1));
       provider2.dispose();
     });
 
-    test('Device Name is configured, persisted, and updated properly', () async {
+    testWidgets('Device Name is configured, persisted, and updated properly', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final mock = MockMqttService();
@@ -78,7 +72,7 @@ void main() {
       provider.dispose();
     });
 
-    test('Remote peer discovery adds device to onlineDevices', () async {
+    testWidgets('Remote peer discovery adds device to onlineDevices', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final mock = MockMqttService();
@@ -103,7 +97,7 @@ void main() {
       provider.dispose();
     });
 
-    test('Self-device filtering ensures own device is NEVER in onlineDevices', () async {
+    testWidgets('Self-device filtering ensures own device is NEVER in onlineDevices', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final mock = MockMqttService();
@@ -126,7 +120,7 @@ void main() {
       provider.dispose();
     });
 
-    test('Offline notice removes peer from onlineDevices', () async {
+    testWidgets('Offline notice removes peer from onlineDevices', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final mock = MockMqttService();
@@ -148,7 +142,7 @@ void main() {
       provider.dispose();
     });
 
-    test('Multiple remote peers are discovered and listed', () async {
+    testWidgets('Multiple remote peers are discovered and listed', (tester) async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final mock = MockMqttService();
