@@ -33,17 +33,25 @@ class MockMqttService extends MqttService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('PresenceProvider Tests', () {
     late MockMqttService mockMqtt;
+    PresenceProvider? activeProvider;
 
     setUp(() {
       SharedPreferences.setMockInitialValues({});
       mockMqtt = MockMqttService();
     });
 
+    tearDown(() {
+      activeProvider?.dispose();
+      activeProvider = null;
+    });
+
     test('Device ID is generated with mc_ prefix and persisted across restarts', () async {
-      SharedPreferences.setMockInitialValues({});
       final provider1 = PresenceProvider(mqttService: mockMqtt);
+      activeProvider = provider1;
       await provider1.initialize();
 
       expect(provider1.localDevice, isNotNull);
@@ -51,15 +59,18 @@ void main() {
       expect(id1.startsWith('mc_'), isTrue);
       expect(id1.length, greaterThan(10));
 
+      provider1.dispose();
+
       // Re-initialize with same storage to verify persistence
       final provider2 = PresenceProvider(mqttService: mockMqtt);
+      activeProvider = provider2;
       await provider2.initialize();
       expect(provider2.localDevice!.deviceId, equals(id1));
     });
 
     test('Device Name is configured, persisted, and updated properly', () async {
-      SharedPreferences.setMockInitialValues({});
       final provider = PresenceProvider(mqttService: mockMqtt);
+      activeProvider = provider;
       await provider.initialize();
 
       // Default name check
@@ -74,8 +85,8 @@ void main() {
     });
 
     test('Remote peer discovery adds device to onlineDevices', () async {
-      SharedPreferences.setMockInitialValues({});
       final provider = PresenceProvider(mqttService: mockMqtt);
+      activeProvider = provider;
       await provider.initialize();
 
       expect(provider.onlineDevices, isEmpty);
@@ -96,8 +107,8 @@ void main() {
     });
 
     test('Self-device filtering ensures own device is NEVER in onlineDevices', () async {
-      SharedPreferences.setMockInitialValues({});
       final provider = PresenceProvider(mqttService: mockMqtt);
+      activeProvider = provider;
       await provider.initialize();
 
       final selfId = provider.localDevice!.deviceId;
@@ -116,8 +127,8 @@ void main() {
     });
 
     test('Offline notice removes peer from onlineDevices', () async {
-      SharedPreferences.setMockInitialValues({});
       final provider = PresenceProvider(mqttService: mockMqtt);
+      activeProvider = provider;
       await provider.initialize();
 
       final remoteDevice = Device(
@@ -135,8 +146,8 @@ void main() {
     });
 
     test('Multiple remote peers are discovered and listed', () async {
-      SharedPreferences.setMockInitialValues({});
       final provider = PresenceProvider(mqttService: mockMqtt);
+      activeProvider = provider;
       await provider.initialize();
 
       final peer1 = Device(
