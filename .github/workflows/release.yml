@@ -12,6 +12,9 @@ jobs:
   build-linux:
     name: Build Linux Release Bundle
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/flutter
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -26,20 +29,17 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Setup Flutter Linux Project & Build
+      - name: Build Linux
         run: |
-          cd apps/flutter
-          flutter create --org com.meckchat --platforms=linux .
-          rm -f test/widget_test.dart
           flutter pub get
           flutter build linux --release
 
       - name: Verify & Compress Linux Bundle
         run: |
-          test -d apps/flutter/build/linux/x64/release/bundle
-          tar -czvf MeckChat-Linux.tar.gz -C apps/flutter/build/linux/x64/release/bundle .
-          test -s MeckChat-Linux.tar.gz
-          ls -lh MeckChat-Linux.tar.gz
+          test -d build/linux/x64/release/bundle
+          tar -czvf $GITHUB_WORKSPACE/MeckChat-Linux.tar.gz -C build/linux/x64/release/bundle .
+          test -s $GITHUB_WORKSPACE/MeckChat-Linux.tar.gz
+          ls -lh $GITHUB_WORKSPACE/MeckChat-Linux.tar.gz
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
@@ -50,6 +50,9 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/flutter
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -65,20 +68,17 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Setup Flutter Android Project & Build
+      - name: Build Android APK
         run: |
-          cd apps/flutter
-          flutter create --org com.meckchat --platforms=android .
-          rm -f test/widget_test.dart
           flutter pub get
           flutter build apk --release --no-tree-shake-icons
 
       - name: Verify & Rename Android APK
         run: |
-          test -f apps/flutter/build/app/outputs/flutter-apk/app-release.apk
-          cp apps/flutter/build/app/outputs/flutter-apk/app-release.apk MeckChat-Android.apk
-          test -s MeckChat-Android.apk
-          ls -lh MeckChat-Android.apk
+          test -f build/app/outputs/flutter-apk/app-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk $GITHUB_WORKSPACE/MeckChat-Android.apk
+          test -s $GITHUB_WORKSPACE/MeckChat-Android.apk
+          ls -lh $GITHUB_WORKSPACE/MeckChat-Android.apk
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
