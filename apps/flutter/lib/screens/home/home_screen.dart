@@ -37,7 +37,9 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Color(0xFF94A3B8)),
             tooltip: 'Reconnect MQTT',
-            onPressed: () => presence.reconnect(),
+            onPressed: () {
+              presence.reconnect();
+            },
           ),
         ],
       ),

@@ -96,7 +96,9 @@ class PresenceProvider extends ChangeNotifier {
         } else if (Platform.isMacOS) {
           platformStr = 'macos';
         }
-      } catch (_) {}
+      } catch (_) {
+        platformStr = 'linux';
+      }
     }
 
     // 3. Get or set default Device Name

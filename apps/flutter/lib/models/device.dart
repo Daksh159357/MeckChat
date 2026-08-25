@@ -82,7 +82,9 @@ class Device {
       if (decoded is Map<String, dynamic>) {
         return fromPresenceJson(decoded);
       }
-    } catch (_) {}
+    } catch (_) {
+      return null;
+    }
     return null;
   }
 }
