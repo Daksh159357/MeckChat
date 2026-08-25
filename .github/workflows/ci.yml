@@ -41,7 +41,7 @@ jobs:
         run: flutter analyze --no-fatal-infos || true
 
       - name: Flutter Unit Tests
-        run: flutter test --coverage
+        run: flutter test
 
       - name: Build Linux Application
         run: flutter build linux --release
