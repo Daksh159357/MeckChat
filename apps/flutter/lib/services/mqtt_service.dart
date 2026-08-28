@@ -209,10 +209,12 @@ class MqttService {
       final topic = topicPresenceOnline(_localDevice!.deviceId);
       final payload = _localDevice!.toPresenceOnlineJsonString();
       final builder = MqttClientPayloadBuilder().addString(payload);
-
-      _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload,
-          retain: true);
-      debugPrint('[MQTT] Published online presence to $topic');
+      final buffer = builder.payload;
+      if (buffer != null) {
+        _client!.publishMessage(topic, MqttQos.atLeastOnce, buffer,
+            retain: true);
+        debugPrint('[MQTT] Published online presence to $topic');
+      }
     } catch (e) {
       debugPrint('[MQTT] Failed to publish online presence: $e');
     }
@@ -228,10 +230,12 @@ class MqttService {
       final topic = topicPresenceOffline(_localDevice!.deviceId);
       final payload = _localDevice!.toPresenceOfflineJsonString();
       final builder = MqttClientPayloadBuilder().addString(payload);
-
-      _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload,
-          retain: true);
-      debugPrint('[MQTT] Published offline presence to $topic');
+      final buffer = builder.payload;
+      if (buffer != null) {
+        _client!.publishMessage(topic, MqttQos.atLeastOnce, buffer,
+            retain: true);
+        debugPrint('[MQTT] Published offline presence to $topic');
+      }
     } catch (e) {
       debugPrint('[MQTT] Failed to publish offline presence: $e');
     }
@@ -251,11 +255,13 @@ class MqttService {
         'timestamp': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       });
       final builder = MqttClientPayloadBuilder().addString(payload);
-
-      _client!.publishMessage(
-          topicDiscovery, MqttQos.atLeastOnce, builder.payload,
-          retain: false);
-      debugPrint('[MQTT] Discovery request broadcasted to $topicDiscovery');
+      final buffer = builder.payload;
+      if (buffer != null) {
+        _client!.publishMessage(
+            topicDiscovery, MqttQos.atLeastOnce, buffer,
+            retain: false);
+        debugPrint('[MQTT] Discovery request broadcasted to $topicDiscovery');
+      }
     } catch (e) {
       debugPrint('[MQTT] Failed to publish discovery request: $e');
     }
