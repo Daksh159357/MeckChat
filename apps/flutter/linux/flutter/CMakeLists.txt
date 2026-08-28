@@ -5,6 +5,9 @@ set(EPHEMERAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ephemeral")
 # Configuration provided via flutter tool.
 include(${EPHEMERAL_DIR}/generated_config.cmake OPTIONAL)
 
+# Plugins are configured by the Flutter tool.
+include(${EPHEMERAL_DIR}/generated_plugins.cmake OPTIONAL)
+
 # Serves the same purpose as list(TRANSFORM ... PREPEND ...),
 # which isn't available in CMake 3.10.
 function(list_prepend LIST_NAME PREFIX)

@@ -37,6 +37,7 @@ add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
 add_executable(${BINARY_NAME}
   "main.cc"
   "my_application.cc"
+  "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 
 # Apply the standard set of build settings.
@@ -44,6 +45,7 @@ apply_standard_settings(${BINARY_NAME})
 
 # Add dependency libraries and include directories.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter)
+target_link_libraries(${BINARY_NAME} PRIVATE flutter_plugins)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
