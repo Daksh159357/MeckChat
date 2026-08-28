@@ -33,8 +33,9 @@ class MockMqttService extends MqttService {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUp(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
