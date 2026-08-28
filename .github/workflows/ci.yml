@@ -61,6 +61,11 @@ jobs:
           tar -czf MeckChat-Linux.tar.gz -C build/linux/x64/release/bundle .
           test -s MeckChat-Linux.tar.gz
 
+      - name: Configure Android local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+          echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
+
       - name: Build Android APK
         run: flutter build apk --release --no-tree-shake-icons
 
