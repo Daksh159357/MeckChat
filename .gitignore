@@ -36,8 +36,6 @@ apps/flutter/android/app/src/debug/
 apps/flutter/android/app/src/profile/
 apps/flutter/android/.gradle
 apps/flutter/android/captures/
-apps/flutter/android/gradlew
-apps/flutter/android/gradlew.bat
 apps/flutter/android/local.properties
 apps/flutter/android/key.jks
 apps/flutter/android/key.p12
