@@ -35,7 +35,10 @@ jobs:
       - name: Install Linux Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++6
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++6 libxdot0 libpcsclite-dev
+
+      - name: Flutter Doctor
+        run: flutter doctor
 
       - name: Flutter Pub Get
         run: flutter pub get
